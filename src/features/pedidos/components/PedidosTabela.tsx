@@ -1,4 +1,5 @@
 // Mitigates: A05 (sem HTML inline vindo de dados; interpolação React)
+import { cn } from "@/lib/utils";
 import { Pill, type PillVariant } from "@/components/common/Pill";
 import { formatMoney, formatDate } from "@/lib/format";
 import { LoadingRow, EmptyRow } from "@/components/common/LoadingRow";
@@ -29,20 +30,21 @@ export type PedidosTabelaProps = {
 
 export function PedidosTabela({ rows, loading }: PedidosTabelaProps) {
   return (
-    <div className="border border-border rounded-lg overflow-hidden bg-card">
-      <table className="w-full text-sm">
-        <thead className="bg-muted text-xs uppercase text-muted-foreground">
+    <div className="bg-white border border-gray-line rounded-lg overflow-x-auto">
+      <table className="w-full">
+        <thead className="bg-gray-soft">
           <tr>
-            <th className="text-left px-4 py-2 font-medium">Nº</th>
-            <th className="text-left px-4 py-2 font-medium">Cliente</th>
-            <th className="text-left px-4 py-2 font-medium">Vendedor</th>
-            <th className="text-left px-4 py-2 font-medium">Fonte</th>
-            <th className="text-left px-4 py-2 font-medium">Status</th>
-            <th className="text-right px-4 py-2 font-medium">Itens</th>
-            <th className="text-right px-4 py-2 font-medium">Total</th>
-            <th className="text-left px-4 py-2 font-medium">Data</th>
+            <Th className="min-w-[120px]">Nº</Th>
+            <Th className="min-w-[200px]">Cliente</Th>
+            <Th className="min-w-[160px]">Vendedor</Th>
+            <Th>Fonte</Th>
+            <Th>Status</Th>
+            <Th className="text-right">Itens</Th>
+            <Th className="text-right">Total</Th>
+            <Th className="text-right">Data</Th>
           </tr>
         </thead>
+
         <tbody>
           {loading && <LoadingRow colSpan={8} />}
           {!loading && rows.length === 0 && (
@@ -50,31 +52,58 @@ export function PedidosTabela({ rows, loading }: PedidosTabelaProps) {
           )}
           {!loading &&
             rows.map((p) => (
-              <tr key={p.id} className="border-t border-border hover:bg-muted/50">
-                <td className="px-4 py-2 font-mono text-xs">{p.numero}</td>
-                <td className="px-4 py-2 font-medium">
-                  {p.cliente_nome ?? "—"}
+              <tr
+                key={p.id}
+                className="border-b border-gray-line transition-colors hover:bg-gray-soft"
+              >
+                <td className="px-3 py-2.5 font-mono text-[12px] text-ink">
+                  {p.numero}
                 </td>
-                <td className="px-4 py-2">{p.vendedor_nome ?? "—"}</td>
-                <td className="px-4 py-2 text-xs text-muted-foreground">
+                <td className="px-3 py-2.5">
+                  <span className="text-[12.5px] font-medium text-ink">
+                    {p.cliente_nome ?? "—"}
+                  </span>
+                </td>
+                <td className="px-3 py-2.5 text-[12.5px] text-ink">
+                  {p.vendedor_nome ?? "—"}
+                </td>
+                <td className="px-3 py-2.5 text-[11px] text-gray-text">
                   {fonteLabel(p.fonte)}
                 </td>
-                <td className="px-4 py-2">
+                <td className="px-3 py-2.5">
                   <Pill variant={STATUS_VARIANT[p.status] ?? "soft"}>
                     {PEDIDO_STATUS_LABEL[p.status] ?? p.status_raw ?? "—"}
                   </Pill>
                 </td>
-                <td className="px-4 py-2 text-right tabular-nums">
+                <td className="px-3 py-2.5 text-right text-[12.5px] tabular text-ink">
                   {p.itens_count.toLocaleString("pt-BR")}
                 </td>
-                <td className="px-4 py-2 text-right tabular-nums">
+                <td className="px-3 py-2.5 text-right text-[12.5px] tabular text-ink font-medium whitespace-nowrap">
                   {formatMoney(p.total)}
                 </td>
-                <td className="px-4 py-2">{formatDate(p.data_pedido)}</td>
+                <td className="px-3 py-2.5 text-right text-[12.5px] tabular text-gray-text whitespace-nowrap">
+                  {formatDate(p.data_pedido)}
+                </td>
               </tr>
             ))}
         </tbody>
       </table>
     </div>
+  );
+}
+
+function Th({
+  children,
+  className,
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <th
+      className={cn("px-3 py-2.5 text-left label-caps text-gray-text", className)}
+    >
+      {children}
+    </th>
   );
 }

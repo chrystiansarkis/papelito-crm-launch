@@ -6,7 +6,6 @@
 import { useState } from "react";
 import {
   PedidosFiltros,
-  PedidosKpis,
   PedidosTabela,
   PEDIDOS_PAGE_SIZE,
   usePedidosKpis,
@@ -14,7 +13,7 @@ import {
   usePedidosVendedores,
   type PedidoFiltro,
 } from "@/features/pedidos";
-import { PageHeader } from "@/components/common/PageHeader";
+import { GlobalBar } from "@/features/carteira";
 import { Pagination } from "@/components/common/Pagination";
 import { ErrorState } from "@/components/common/ErrorState";
 
@@ -48,33 +47,54 @@ export default function Pedidos() {
   const rows = listaQuery.data?.rows ?? [];
 
   return (
-    <div className="p-6 space-y-6">
-      <PageHeader
-        title="Pedidos"
-        subtitle={`${(kpisQuery.data?.total ?? 0).toLocaleString("pt-BR")} pedidos (Protheus + Salesforce)`}
+    <div className="flex flex-col min-h-full">
+      <GlobalBar
+        metrics={{
+          count: kpisQuery.data?.total ?? total,
+          countLabel: "pedidos",
+          ytd: kpisQuery.data?.valor_total ?? null,
+          avgTicket: null,
+        }}
       />
 
-      <PedidosKpis kpis={kpisQuery.data} />
+      <div className="p-4 sm:p-6 lg:p-7 max-w-[1600px] w-full mx-auto space-y-5">
+        <div className="flex items-start justify-between gap-3 flex-wrap">
+          <div>
+            <h1 className="font-display text-3xl sm:text-4xl text-ink mb-1">Pedidos</h1>
+            <p className="text-[13px] text-gray-text">
+              Pedidos consolidados de Protheus e Salesforce — filtre por status, fonte ou vendedor
+            </p>
+          </div>
+        </div>
 
-      <PedidosFiltros
-        value={filtro}
-        onChange={updateFiltro}
-        vendedores={vendedoresQuery.data ?? []}
-      />
+        <PedidosFiltros
+          value={filtro}
+          onChange={updateFiltro}
+          vendedores={vendedoresQuery.data ?? []}
+        />
 
-      {listaQuery.isError ? (
-        <ErrorState onRetry={() => listaQuery.refetch()} />
-      ) : (
-        <>
-          <PedidosTabela rows={rows} loading={listaQuery.isPending} />
-          <Pagination
-            page={filtro.page}
-            pageSize={PEDIDOS_PAGE_SIZE}
-            total={total}
-            onChange={(page) => setFiltro((p) => ({ ...p, page }))}
-          />
-        </>
-      )}
+        {listaQuery.isError ? (
+          <ErrorState onRetry={() => listaQuery.refetch()} />
+        ) : (
+          <div>
+            <PedidosTabela rows={rows} loading={listaQuery.isPending} />
+            <div className="mt-3 flex items-center justify-between gap-3 flex-wrap">
+              <div className="text-[11px] text-gray-text">
+                {(vendedoresQuery.data?.length ?? 0)} vendedor(es) com pedidos ·{" "}
+                {total.toLocaleString("pt-BR")} pedido(s) no total
+              </div>
+            </div>
+            <div className="mt-4">
+              <Pagination
+                page={filtro.page}
+                pageSize={PEDIDOS_PAGE_SIZE}
+                total={total}
+                onChange={(page) => setFiltro((p) => ({ ...p, page }))}
+              />
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

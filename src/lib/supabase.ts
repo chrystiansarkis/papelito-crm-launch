@@ -3,16 +3,16 @@
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/database";
 
-// Em produção, defina VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY no Lovable
-// (ou em .env.local para dev). O fallback abaixo aponta para o projeto Papelito atual
-// e usa apenas a publishable key — segura para exposição no client.
-const supabaseUrl =
-  (import.meta.env.VITE_SUPABASE_URL as string | undefined) ||
-  "https://sxzjalmiltzwnmvfzoar.supabase.co";
+// Em produção, defina VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY no Lovable.
+// Em dev local, copie .env.example para .env e preencha. Apenas chaves publishable/anon.
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
 
-const supabaseAnonKey =
-  (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined) ||
-  "sb_publishable_VevFoPjmfv96lHDlyTpfjw_kkzhZ_6b";
+if (!supabaseUrl || !supabaseAnonKey) {
+  throw new Error(
+    "VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY são obrigatórias. Configure no .env (dev) ou no host (prod).",
+  );
+}
 
 export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
   db: { schema: "crm" },

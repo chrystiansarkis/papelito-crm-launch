@@ -23,19 +23,22 @@ const FONTE_OPTIONS: Array<{ value: "" | PedidoFonte; label: string }> = [
   { value: "SALESFORCE", label: PEDIDO_FONTE_LABEL.SALESFORCE },
 ];
 
+const INPUT_CLASS =
+  "px-3 py-2 text-[12.5px] bg-white border border-gray-line rounded-md text-ink focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand-soft transition-colors";
+
 export function PedidosFiltros({ value, onChange, vendedores }: PedidosFiltrosProps) {
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className="flex flex-wrap gap-2 items-center">
       <input
         value={value.busca}
         onChange={(e) => onChange({ busca: e.target.value })}
         placeholder="Buscar por nº ou cliente..."
-        className="flex-1 min-w-[220px] px-3 py-2 border border-border rounded-lg text-sm bg-card focus:outline-none focus:ring-2 focus:ring-yellow"
+        className={`${INPUT_CLASS} flex-1 min-w-[240px]`}
       />
       <select
         value={value.status}
         onChange={(e) => onChange({ status: e.target.value as PedidoFiltro["status"] })}
-        className="px-3 py-2 border border-border rounded-lg text-sm bg-card"
+        className={INPUT_CLASS}
       >
         {STATUS_OPTIONS.map((o) => (
           <option key={o.value} value={o.value}>
@@ -46,7 +49,7 @@ export function PedidosFiltros({ value, onChange, vendedores }: PedidosFiltrosPr
       <select
         value={value.fonte}
         onChange={(e) => onChange({ fonte: e.target.value as PedidoFiltro["fonte"] })}
-        className="px-3 py-2 border border-border rounded-lg text-sm bg-card"
+        className={INPUT_CLASS}
       >
         {FONTE_OPTIONS.map((o) => (
           <option key={o.value} value={o.value}>
@@ -57,7 +60,7 @@ export function PedidosFiltros({ value, onChange, vendedores }: PedidosFiltrosPr
       <select
         value={value.vendedor}
         onChange={(e) => onChange({ vendedor: e.target.value })}
-        className="px-3 py-2 border border-border rounded-lg text-sm bg-card"
+        className={INPUT_CLASS}
       >
         <option value="">Todos vendedores</option>
         {vendedores.map((v) => (

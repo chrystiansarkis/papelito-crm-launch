@@ -1,17 +1,12 @@
 import { useState } from "react";
-import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { NavLink, Outlet } from "react-router-dom";
 import {
   Home, Briefcase, ShoppingCart, Megaphone, UserPlus, Wallet,
-  BarChart3, Map, Award, Settings, Bell, Search, LogOut, User as UserIcon,
+  BarChart3, Map, Award, Settings, Bell, Search,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
-import { supabase } from "@/lib/supabase";
 import type { Papel } from "@/lib/database.types";
-import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem,
-  DropdownMenuSeparator, DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 
 type NavItem = { to: string; label: string; icon: typeof Home; roles: Papel[] };
 
@@ -29,20 +24,16 @@ const NAV: NavItem[] = [
 ];
 
 export function AppShell() {
-  const navigate = useNavigate();
   const { data: user } = useCurrentUser();
   const [search, setSearch] = useState("");
 
   const items = user ? NAV.filter((i) => i.roles.includes(user.papel)) : [];
 
-  async function logout() {
-    await supabase.auth.signOut();
-    navigate("/login", { replace: true });
-  }
-
   const initials = user?.nome
     ? user.nome.split(" ").slice(0, 2).map((n) => n[0]).join("").toUpperCase()
     : "?";
+
+  const papelLabel = user?.papel ? user.papel.toUpperCase() : "";
 
   return (
     <div className="min-h-screen flex bg-paper text-ink">
@@ -71,6 +62,15 @@ export function AppShell() {
             </NavLink>
           ))}
         </nav>
+        <div className="border-t border-border p-3 flex items-center gap-3">
+          <div className="w-8 h-8 rounded-full bg-yellow text-ink text-xs font-medium flex items-center justify-center shrink-0">
+            {initials}
+          </div>
+          <div className="min-w-0 text-sm leading-tight">
+            <div className="font-medium truncate">{user?.nome}</div>
+            <div className="text-xs text-muted-foreground truncate">{papelLabel}</div>
+          </div>
+        </div>
       </aside>
 
       <div className="flex-1 flex flex-col min-w-0">
@@ -89,26 +89,6 @@ export function AppShell() {
               <Bell className="w-4 h-4" />
               <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-yellow opacity-0" />
             </button>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button className="w-8 h-8 rounded-full bg-yellow text-ink text-xs font-medium flex items-center justify-center hover:opacity-90">
-                  {initials}
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48">
-                <div className="px-2 py-1.5 text-xs">
-                  <div className="font-medium truncate">{user?.nome}</div>
-                  <div className="text-muted-foreground truncate">{user?.email}</div>
-                </div>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem>
-                  <UserIcon className="w-4 h-4 mr-2" /> Meu perfil
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={logout}>
-                  <LogOut className="w-4 h-4 mr-2" /> Sair
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
           </div>
         </header>
 

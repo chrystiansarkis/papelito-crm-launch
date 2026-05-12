@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { useNavigate } from "react-router-dom";
+import { publicDb } from "@/lib/supabase";
+import { SAUDE_LABEL, SCORE_COLOR, formatMoney, formatDate } from "@/lib/clienteBadges";
 
 type Cliente = {
   id: string;
@@ -17,28 +19,10 @@ type Cliente = {
   em_pdv_perfeito: boolean;
 };
 
-const SAUDE_LABEL: Record<string, { label: string; color: string }> = {
-  saudavel: { label: "Saudável", color: "bg-green-100 text-green-800" },
-  atencao: { label: "Atenção", color: "bg-yellow-100 text-yellow-800" },
-  em_risco: { label: "Em risco", color: "bg-orange-100 text-orange-800" },
-  inadimplente: { label: "Inadimplente", color: "bg-red-100 text-red-800" },
-  sumido: { label: "Sumido", color: "bg-gray-100 text-gray-600" },
-};
-
-const SCORE_COLOR: Record<string, string> = {
-  A: "bg-green-100 text-green-800",
-  B: "bg-lime-100 text-lime-800",
-  C: "bg-yellow-100 text-yellow-800",
-  D: "bg-orange-100 text-orange-800",
-  E: "bg-red-100 text-red-800",
-};
-
 const PAGE_SIZE = 50;
 
-// vw_carteira lives in the public schema; the default client is bound to crm.
-const publicDb = supabase.schema("public" as never) as unknown as typeof supabase;
-
 export default function Carteira() {
+  const navigate = useNavigate();
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -103,19 +87,6 @@ export default function Carteira() {
   useEffect(() => {
     setPage(0);
   }, [busca, filtroSaude, filtroVendedor, filtroPrograma]);
-
-  function formatMoney(n: number) {
-    return new Intl.NumberFormat("pt-BR", {
-      style: "currency",
-      currency: "BRL",
-      maximumFractionDigits: 0,
-    }).format(n);
-  }
-
-  function formatDate(d: string | null) {
-    if (!d) return "—";
-    return new Date(d).toLocaleDateString("pt-BR");
-  }
 
   const totalPages = Math.ceil(total / PAGE_SIZE);
 
@@ -212,7 +183,11 @@ export default function Carteira() {
             )}
             {!loading &&
               clientes.map((c) => (
-                <tr key={c.id} className="border-t border-border hover:bg-muted/50">
+                <tr
+                  key={c.id}
+                  onClick={() => navigate(`/cliente/${c.id}`)}
+                  className="border-t border-border hover:bg-muted/50 cursor-pointer"
+                >
                   <td className="px-4 py-2">
                     <div className="font-medium">{c.nome}</div>
                     <div className="flex gap-1 mt-0.5">

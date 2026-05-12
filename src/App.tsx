@@ -4,9 +4,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppShell } from "./layouts/AppShell";
-import { Login } from "./pages/Login";
 import { Inicio } from "./pages/Inicio";
-import { ProtectedRoute } from "./components/ProtectedRoute";
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 60_000, refetchOnWindowFocus: false } },
@@ -20,14 +18,7 @@ export default function App() {
         <Sonner />
         <BrowserRouter>
           <Routes>
-            <Route path="/login" element={<Login />} />
-            <Route
-              element={
-                <ProtectedRoute>
-                  <AppShell />
-                </ProtectedRoute>
-              }
-            >
+            <Route element={<AppShell />}>
               <Route path="/" element={<Inicio />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Route>

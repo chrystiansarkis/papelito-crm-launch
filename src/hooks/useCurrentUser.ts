@@ -1,4 +1,4 @@
-import type { UsuarioRow } from "@/lib/database.types";
+import type { UsuarioRow } from "@/types/database";
 
 const HARDCODED_USER: UsuarioRow = {
   id: "hardcoded-chrystian",

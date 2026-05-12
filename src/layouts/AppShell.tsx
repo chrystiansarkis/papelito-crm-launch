@@ -6,7 +6,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
-import type { Papel } from "@/lib/database.types";
+import type { Papel } from "@/types/database";
 
 type NavItem = { to: string; label: string; icon: typeof Home; roles: Papel[] };
 

@@ -1,11 +1,15 @@
+// Mitigates: A02 (apenas chaves publishable/anon no client; service_role_key proibida aqui),
+//            A01 (RLS no banco é a defesa real; client confia no policy enforcement do Postgres)
 import { createClient } from "@supabase/supabase-js";
-import type { Database } from "./database.types";
+import type { Database } from "@/types/database";
 
-// Valores publicáveis (publishable/anon) — seguros no client.
-// Permitimos override via env (.env.local) para dev local apontando para outro projeto.
+// Em produção, defina VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY no Lovable
+// (ou em .env.local para dev). O fallback abaixo aponta para o projeto Papelito atual
+// e usa apenas a publishable key — segura para exposição no client.
 const supabaseUrl =
   (import.meta.env.VITE_SUPABASE_URL as string | undefined) ||
   "https://sxzjalmiltzwnmvfzoar.supabase.co";
+
 const supabaseAnonKey =
   (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined) ||
   "sb_publishable_VevFoPjmfv96lHDlyTpfjw_kkzhZ_6b";

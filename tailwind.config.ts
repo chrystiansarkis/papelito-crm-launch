@@ -20,9 +20,26 @@ export default {
         accent: { DEFAULT: "hsl(var(--accent))", foreground: "hsl(var(--accent-foreground))" },
         popover: { DEFAULT: "hsl(var(--popover))", foreground: "hsl(var(--popover-foreground))" },
         card: { DEFAULT: "hsl(var(--card))", foreground: "hsl(var(--card-foreground))" },
-        // Papelito
+
+        // Papelito core
         paper: "#FAFAF6",
-        ink: "#161616",
+        ink: {
+          DEFAULT: "#161616",
+          soft: "#3B3B3B",
+        },
+
+        // Grays (Figma Make)
+        "gray-soft": "#F4F4EE",
+        "gray-line": "#E8E8E3",
+        "gray-text": "#6B6B66",
+        "gray-faint": "#9C9C97",
+
+        // Brand (yellow)
+        brand: {
+          DEFAULT: "#F5C518",
+          soft: "#FEFAE6",
+          deep: "#D9A800",
+        },
         yellow: {
           DEFAULT: "#F5C518",
           50: "#FEFAE6",
@@ -30,6 +47,22 @@ export default {
           500: "#F5C518",
           600: "#D9A800",
         },
+
+        // Status (Figma Make)
+        good: {
+          DEFAULT: "#22C55E",
+          soft: "#DCFCE7",
+        },
+        warn: {
+          DEFAULT: "#F59E0B",
+          soft: "#FEF3C7",
+        },
+        bad: {
+          DEFAULT: "#EF4444",
+          soft: "#FEE2E2",
+        },
+
+        // Legacy aliases (compat antes do refactor)
         saude: {
           saudavel: "#22C55E",
           atencao: "#F59E0B",
@@ -57,10 +90,16 @@ export default {
       keyframes: {
         "accordion-down": { from: { height: "0" }, to: { height: "var(--radix-accordion-content-height)" } },
         "accordion-up": { from: { height: "var(--radix-accordion-content-height)" }, to: { height: "0" } },
+        "slide-in-left": { from: { transform: "translateX(-100%)" }, to: { transform: "translateX(0)" } },
+        "slide-out-left": { from: { transform: "translateX(0)" }, to: { transform: "translateX(-100%)" } },
+        "fade-in": { from: { opacity: "0" }, to: { opacity: "1" } },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+        "slide-in-left": "slide-in-left 0.2s ease-out",
+        "slide-out-left": "slide-out-left 0.2s ease-out",
+        "fade-in": "fade-in 0.15s ease-out",
       },
     },
   },

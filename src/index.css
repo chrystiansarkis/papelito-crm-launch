@@ -35,3 +35,16 @@
   body { @apply font-sans bg-paper text-ink; }
   h1, h2, h3 { @apply font-display tracking-tight; }
 }
+
+@layer components {
+  /* Pequeno utilitário replicado do Figma Make */
+  .label-caps {
+    @apply text-[10.5px] uppercase tracking-wider font-medium;
+  }
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+  .display {
+    @apply font-display;
+  }
+}

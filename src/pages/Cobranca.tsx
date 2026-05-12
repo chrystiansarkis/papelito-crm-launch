@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { publicDb } from "@/lib/supabase";
-import { SCORE_COLOR, formatMoney } from "@/lib/clienteBadges";
+import { SCORE_COLOR, formatMoney, formatDate } from "@/lib/clienteBadges";
 
 type Kpis = {
   carteira_aberta: number | null;
@@ -47,14 +47,62 @@ type CobrancaRow = {
   tem_promessa: boolean;
 };
 
+type Acordo = {
+  id: string;
+  cliente_id: string;
+  cliente_nome: string;
+  tipo: string | null;
+  status: string;
+  valor_original: number;
+  valor_final: number;
+  valor_pago: number;
+  qtd_parcelas: number;
+  parcelas_pagas: number;
+  parcelas_vencidas: number;
+  parcelas_a_vencer: number;
+  proxima_parcela_data: string | null;
+  proxima_parcela_valor: number | null;
+  negociado_por_nome: string | null;
+  aprovado_por_nome: string | null;
+  observacao: string | null;
+};
+
+type Promessa = {
+  id: string;
+  cliente_id: string;
+  cliente_nome: string;
+  vendedor_nome: string | null;
+  data_prometida: string;
+  valor: number;
+  situacao: string;
+  registrado_por_nome: string | null;
+};
+
 const PAGE_SIZE = 50;
 
 type Aba = "carteira" | "acordos" | "regua";
+
+const STATUS_ACORDO: Record<string, { label: string; color: string }> = {
+  ativo: { label: "Ativo", color: "bg-green-100 text-green-800" },
+  concluido: { label: "Concluído", color: "bg-blue-100 text-blue-800" },
+  quebrado: { label: "Quebrado", color: "bg-red-100 text-red-800" },
+  cancelado: { label: "Cancelado", color: "bg-gray-100 text-gray-700" },
+};
+
+const SITUACAO_PROMESSA: Record<string, { label: string; color: string; ordem: number }> = {
+  atrasada: { label: "Atrasada", color: "bg-red-100 text-red-800", ordem: 1 },
+  hoje: { label: "Hoje", color: "bg-orange-100 text-orange-800", ordem: 2 },
+  proxima: { label: "Próxima (em até 3 dias)", color: "bg-yellow-100 text-yellow-800", ordem: 3 },
+  futura: { label: "Futura", color: "bg-gray-100 text-gray-700", ordem: 4 },
+  cumprida: { label: "Cumprida", color: "bg-green-100 text-green-800", ordem: 5 },
+  quebrada: { label: "Quebrada", color: "bg-red-200 text-red-900", ordem: 6 },
+};
 
 export default function Cobranca() {
   const navigate = useNavigate();
   const [aba, setAba] = useState<Aba>("carteira");
 
+  // === Estados Aba 1 ===
   const [kpis, setKpis] = useState<Kpis | null>(null);
   const [rows, setRows] = useState<CobrancaRow[]>([]);
   const [total, setTotal] = useState(0);
@@ -68,6 +116,14 @@ export default function Cobranca() {
   const [comAcordo, setComAcordo] = useState(false);
 
   const [vendedores, setVendedores] = useState<string[]>([]);
+
+  // === Estados Aba 2 ===
+  const [acordos, setAcordos] = useState<Acordo[]>([]);
+  const [promessas, setPromessas] = useState<Promessa[]>([]);
+  const [loadingAba2, setLoadingAba2] = useState(false);
+  const [filtroSituacao, setFiltroSituacao] = useState<
+    "" | "pendentes" | "cumprida" | "quebrada"
+  >("");
 
   useEffect(() => {
     publicDb
@@ -118,8 +174,46 @@ export default function Cobranca() {
     setPage(0);
   }, [busca, faixa, vendedor, score, comAcordo]);
 
+  // === Fetch da Aba 2 ===
+  useEffect(() => {
+    if (aba !== "acordos") return;
+    setLoadingAba2(true);
+    Promise.all([
+      publicDb
+        .from("vw_cobranca_acordos" as never)
+        .select("*")
+        .order("status", { ascending: true })
+        .order("proxima_parcela_data", { ascending: true }),
+      publicDb.from("vw_cobranca_promessas" as never).select("*"),
+    ]).then(([acRes, prRes]) => {
+      setAcordos(((acRes as { data: unknown }).data as Acordo[]) ?? []);
+      setPromessas(((prRes as { data: unknown }).data as Promessa[]) ?? []);
+      setLoadingAba2(false);
+    });
+  }, [aba]);
+
   const totalPages = Math.ceil(total / PAGE_SIZE);
   const pctVencido = Number(kpis?.pct_vencido ?? 0);
+
+  // === Filtra promessas ===
+  const promessasFiltradas = promessas
+    .filter((p) => {
+      if (filtroSituacao === "") return true;
+      if (filtroSituacao === "pendentes")
+        return ["futura", "proxima", "hoje", "atrasada"].includes(p.situacao);
+      return p.situacao === filtroSituacao;
+    })
+    .sort((a, b) => {
+      const oa = SITUACAO_PROMESSA[a.situacao]?.ordem ?? 99;
+      const ob = SITUACAO_PROMESSA[b.situacao]?.ordem ?? 99;
+      if (oa !== ob) return oa - ob;
+      return (a.data_prometida ?? "").localeCompare(b.data_prometida ?? "");
+    });
+
+  const acordosAtivos = acordos.filter((a) => a.status === "ativo").length;
+  const promessasPendentes = promessas.filter((p) =>
+    ["futura", "proxima", "hoje", "atrasada"].includes(p.situacao)
+  ).length;
 
   return (
     <div className="p-6 space-y-6">
@@ -141,7 +235,8 @@ export default function Cobranca() {
         </TabBtn>
       </div>
 
-      {aba !== "carteira" && (
+      {/* Aba 3 — placeholder */}
+      {aba === "regua" && (
         <div className="bg-card border border-border rounded-lg p-16 text-center">
           <div className="text-4xl mb-2">🚧</div>
           <div className="font-display text-xl">Em construção</div>
@@ -149,9 +244,9 @@ export default function Cobranca() {
         </div>
       )}
 
+      {/* Aba 1 — Carteira */}
       {aba === "carteira" && (
         <>
-          {/* KPIs linha 1 */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             <Kpi label="Carteira aberta" value={formatMoney(kpis?.carteira_aberta ?? 0)} />
             <Kpi
@@ -167,14 +262,12 @@ export default function Cobranca() {
             <Kpi label="DSO 12m" value={`${kpis?.dso_dias ?? 0} dias`} />
           </div>
 
-          {/* Aging linha 2 */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <AgingKpi label="1–30 dias" value={kpis?.vencido_1_30 ?? 0} color="#F5C518" />
             <AgingKpi label="31–90 dias" value={kpis?.vencido_31_90 ?? 0} color="#F59E0B" />
             <AgingKpi label="91+ dias" value={kpis?.vencido_91_mais ?? 0} color="#EF4444" />
           </div>
 
-          {/* Filtros */}
           <div className="flex flex-wrap gap-2 items-center">
             <input
               value={busca}
@@ -199,7 +292,9 @@ export default function Cobranca() {
             >
               <option value="">Todos vendedores</option>
               {vendedores.map((v) => (
-                <option key={v} value={v}>{v}</option>
+                <option key={v} value={v}>
+                  {v}
+                </option>
               ))}
             </select>
             <select
@@ -208,7 +303,11 @@ export default function Cobranca() {
               className="px-3 py-2 border border-border rounded-lg text-sm bg-card"
             >
               <option value="">Todos scores</option>
-              {["A","B","C","D","E"].map((s) => <option key={s} value={s}>{s}</option>)}
+              {["A", "B", "C", "D", "E"].map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
             </select>
             <label className="flex items-center gap-2 px-3 py-2 border border-border rounded-lg text-sm bg-card cursor-pointer">
               <input
@@ -220,7 +319,6 @@ export default function Cobranca() {
             </label>
           </div>
 
-          {/* Tabela */}
           <div className="border border-border rounded-lg overflow-hidden bg-card">
             <table className="w-full text-sm">
               <thead className="bg-muted text-xs uppercase text-muted-foreground">
@@ -236,51 +334,74 @@ export default function Cobranca() {
               </thead>
               <tbody>
                 {loading && (
-                  <tr><td colSpan={7} className="px-4 py-10 text-center text-muted-foreground">Carregando...</td></tr>
-                )}
-                {!loading && rows.length === 0 && (
-                  <tr><td colSpan={7} className="px-4 py-10 text-center text-muted-foreground">Nenhum cliente encontrado</td></tr>
-                )}
-                {!loading && rows.map((r) => (
-                  <tr
-                    key={r.cliente_id}
-                    onClick={() => navigate(`/cliente/${r.cliente_id}`)}
-                    className="border-t border-border hover:bg-muted/50 cursor-pointer"
-                  >
-                    <td className="px-4 py-2">
-                      <div className="font-medium">{r.nome}</div>
-                      {r.em_familia_papelito && (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-yellow-100 text-yellow-800 mt-0.5 inline-block">Família</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-2">{r.vendedor_nome ?? "—"}</td>
-                    <td className="px-4 py-2">
-                      {r.score && (
-                        <span className={`text-xs px-2 py-0.5 rounded font-medium ${SCORE_COLOR[r.score] ?? "bg-muted text-muted-foreground"}`}>
-                          {r.score}
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-4 py-2 text-right tabular-nums text-red-600 font-medium">
-                      {formatMoney(Number(r.total_vencido || 0))}
-                    </td>
-                    <td className="px-4 py-2 text-right tabular-nums">{r.dias_maximo_atraso} d</td>
-                    <td className="px-4 py-2"><AgingBar row={r} /></td>
-                    <td className="px-4 py-2">
-                      <div className="flex gap-1 flex-wrap">
-                        {r.tem_acordo && (
-                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-100 text-blue-800">📌 Acordo</span>
-                        )}
-                        {r.tem_promessa && (
-                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-purple-100 text-purple-800">🤝 Promessa</span>
-                        )}
-                        {r.bloqueado && r.bloqueado !== "livre" && (
-                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-100 text-red-800">🔒</span>
-                        )}
-                      </div>
+                  <tr>
+                    <td colSpan={7} className="px-4 py-10 text-center text-muted-foreground">
+                      Carregando...
                     </td>
                   </tr>
-                ))}
+                )}
+                {!loading && rows.length === 0 && (
+                  <tr>
+                    <td colSpan={7} className="px-4 py-10 text-center text-muted-foreground">
+                      Nenhum cliente encontrado
+                    </td>
+                  </tr>
+                )}
+                {!loading &&
+                  rows.map((r) => (
+                    <tr
+                      key={r.cliente_id}
+                      onClick={() => navigate(`/cliente/${r.cliente_id}`)}
+                      className="border-t border-border hover:bg-muted/50 cursor-pointer"
+                    >
+                      <td className="px-4 py-2">
+                        <div className="font-medium">{r.nome}</div>
+                        {r.em_familia_papelito && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-yellow-100 text-yellow-800 mt-0.5 inline-block">
+                            Família
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-4 py-2">{r.vendedor_nome ?? "—"}</td>
+                      <td className="px-4 py-2">
+                        {r.score && (
+                          <span
+                            className={`text-xs px-2 py-0.5 rounded font-medium ${
+                              SCORE_COLOR[r.score] ?? "bg-muted text-muted-foreground"
+                            }`}
+                          >
+                            {r.score}
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-4 py-2 text-right tabular-nums text-red-600 font-medium">
+                        {formatMoney(Number(r.total_vencido || 0))}
+                      </td>
+                      <td className="px-4 py-2 text-right tabular-nums">{r.dias_maximo_atraso} d</td>
+                      <td className="px-4 py-2">
+                        <AgingBar row={r} />
+                      </td>
+                      <td className="px-4 py-2">
+                        <div className="flex gap-1 flex-wrap">
+                          {r.tem_acordo && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-100 text-blue-800">
+                              📌 Acordo
+                            </span>
+                          )}
+                          {r.tem_promessa && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-purple-100 text-purple-800">
+                              🤝 Promessa
+                            </span>
+                          )}
+                          {r.bloqueado && r.bloqueado !== "sem_bloqueio" && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-100 text-red-800">
+                              🔒
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
               </tbody>
             </table>
           </div>
@@ -310,16 +431,147 @@ export default function Cobranca() {
           )}
         </>
       )}
+
+      {/* Aba 2 — Acordos & Promessas */}
+      {aba === "acordos" && (
+        <>
+          {loadingAba2 && (
+            <div className="text-sm text-muted-foreground">Carregando...</div>
+          )}
+
+          {!loadingAba2 && (
+            <>
+              {/* Seção 1 — Acordos */}
+              <section className="space-y-3">
+                <div className="flex items-baseline gap-2">
+                  <h2 className="font-display text-2xl">Acordos de parcelamento</h2>
+                  <span className="text-sm text-muted-foreground">
+                    ({acordosAtivos} ativo{acordosAtivos === 1 ? "" : "s"})
+                  </span>
+                </div>
+
+                {acordos.length === 0 && (
+                  <div className="bg-card border border-border rounded-lg p-10 text-center">
+                    <div className="text-3xl mb-2">📋</div>
+                    <div className="text-sm text-muted-foreground">
+                      Nenhum acordo de parcelamento registrado ainda.
+                    </div>
+                  </div>
+                )}
+
+                <div className="space-y-3">
+                  {acordos.map((a) => (
+                    <AcordoCard
+                      key={a.id}
+                      acordo={a}
+                      onClickCliente={() => navigate(`/cliente/${a.cliente_id}`)}
+                    />
+                  ))}
+                </div>
+              </section>
+
+              {/* Seção 2 — Promessas */}
+              <section className="space-y-3">
+                <div className="flex items-baseline justify-between gap-2 flex-wrap">
+                  <div className="flex items-baseline gap-2">
+                    <h2 className="font-display text-2xl">Promessas de pagamento</h2>
+                    <span className="text-sm text-muted-foreground">
+                      ({promessasPendentes} pendente{promessasPendentes === 1 ? "" : "s"})
+                    </span>
+                  </div>
+                  <select
+                    value={filtroSituacao}
+                    onChange={(e) =>
+                      setFiltroSituacao(e.target.value as typeof filtroSituacao)
+                    }
+                    className="px-3 py-2 border border-border rounded-lg text-sm bg-card"
+                  >
+                    <option value="">Todas situações</option>
+                    <option value="pendentes">Pendentes</option>
+                    <option value="cumprida">Cumpridas</option>
+                    <option value="quebrada">Quebradas</option>
+                  </select>
+                </div>
+
+                <div className="border border-border rounded-lg overflow-hidden bg-card">
+                  <table className="w-full text-sm">
+                    <thead className="bg-muted text-xs uppercase text-muted-foreground">
+                      <tr>
+                        <th className="text-left px-4 py-2 font-medium">Cliente</th>
+                        <th className="text-left px-4 py-2 font-medium">Vendedor</th>
+                        <th className="text-left px-4 py-2 font-medium">Data prometida</th>
+                        <th className="text-right px-4 py-2 font-medium">Valor</th>
+                        <th className="text-left px-4 py-2 font-medium">Situação</th>
+                        <th className="text-left px-4 py-2 font-medium">Registrado por</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {promessasFiltradas.length === 0 && (
+                        <tr>
+                          <td
+                            colSpan={6}
+                            className="px-4 py-10 text-center text-muted-foreground"
+                          >
+                            Nenhuma promessa encontrada.
+                          </td>
+                        </tr>
+                      )}
+                      {promessasFiltradas.map((p) => {
+                        const s = SITUACAO_PROMESSA[p.situacao] ?? {
+                          label: p.situacao,
+                          color: "bg-muted text-muted-foreground",
+                        };
+                        return (
+                          <tr
+                            key={p.id}
+                            onClick={() => navigate(`/cliente/${p.cliente_id}`)}
+                            className="border-t border-border hover:bg-muted/50 cursor-pointer"
+                          >
+                            <td className="px-4 py-2 font-medium">{p.cliente_nome}</td>
+                            <td className="px-4 py-2">{p.vendedor_nome ?? "—"}</td>
+                            <td className="px-4 py-2">{formatDate(p.data_prometida)}</td>
+                            <td className="px-4 py-2 text-right tabular-nums font-medium">
+                              {formatMoney(Number(p.valor || 0))}
+                            </td>
+                            <td className="px-4 py-2">
+                              <span className={`text-xs px-2 py-0.5 rounded-full ${s.color}`}>
+                                {s.label}
+                              </span>
+                            </td>
+                            <td className="px-4 py-2 text-muted-foreground">
+                              {p.registrado_por_nome ?? "—"}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+            </>
+          )}
+        </>
+      )}
     </div>
   );
 }
 
-function TabBtn({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+function TabBtn({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
   return (
     <button
       onClick={onClick}
       className={`pb-3 -mb-px text-sm font-medium border-b-2 transition-colors ${
-        active ? "border-yellow text-ink" : "border-transparent text-muted-foreground hover:text-ink"
+        active
+          ? "border-yellow text-ink"
+          : "border-transparent text-muted-foreground hover:text-ink"
       }`}
     >
       {children}
@@ -327,7 +579,15 @@ function TabBtn({ active, onClick, children }: { active: boolean; onClick: () =>
   );
 }
 
-function Kpi({ label, value, valueClass = "" }: { label: string; value: string; valueClass?: string }) {
+function Kpi({
+  label,
+  value,
+  valueClass = "",
+}: {
+  label: string;
+  value: string;
+  valueClass?: string;
+}) {
   return (
     <div className="border border-border rounded-lg p-4 bg-card">
       <div className="text-xs uppercase text-muted-foreground">{label}</div>
@@ -338,7 +598,10 @@ function Kpi({ label, value, valueClass = "" }: { label: string; value: string; 
 
 function AgingKpi({ label, value, color }: { label: string; value: number; color: string }) {
   return (
-    <div className="border border-border rounded-lg p-3 bg-card border-l-4" style={{ borderLeftColor: color }}>
+    <div
+      className="border border-border rounded-lg p-3 bg-card border-l-4"
+      style={{ borderLeftColor: color }}
+    >
       <div className="text-xs uppercase text-muted-foreground">{label}</div>
       <div className="text-lg font-display mt-0.5 tabular-nums">{formatMoney(value)}</div>
     </div>
@@ -353,7 +616,9 @@ function AgingBar({ row }: { row: CobrancaRow }) {
   const total = seg1 + seg2 + seg3 + seg4;
   if (total <= 0) return <div className="text-xs text-muted-foreground">—</div>;
   const pct = (v: number) => (v / total) * 100;
-  const tip = `1–30: ${formatMoney(seg1)} | 31–90: ${formatMoney(seg2)} | 91–360: ${formatMoney(seg3)} | 361+: ${formatMoney(seg4)}`;
+  const tip = `1–30: ${formatMoney(seg1)} | 31–90: ${formatMoney(seg2)} | 91–360: ${formatMoney(
+    seg3
+  )} | 361+: ${formatMoney(seg4)}`;
   return (
     <div className="flex h-2 rounded overflow-hidden bg-muted w-full" title={tip}>
       {seg1 > 0 && <div style={{ width: `${pct(seg1)}%`, background: "#F5C518" }} />}
@@ -361,5 +626,148 @@ function AgingBar({ row }: { row: CobrancaRow }) {
       {seg3 > 0 && <div style={{ width: `${pct(seg3)}%`, background: "#EF4444" }} />}
       {seg4 > 0 && <div style={{ width: `${pct(seg4)}%`, background: "#991B1B" }} />}
     </div>
+  );
+}
+
+function AcordoCard({
+  acordo: a,
+  onClickCliente,
+}: {
+  acordo: Acordo;
+  onClickCliente: () => void;
+}) {
+  const st = STATUS_ACORDO[a.status] ?? {
+    label: a.status,
+    color: "bg-muted text-muted-foreground",
+  };
+  const total = a.qtd_parcelas || 1;
+  const pagas = a.parcelas_pagas || 0;
+  const vencidas = a.parcelas_vencidas || 0;
+  const aVencer = a.parcelas_a_vencer || 0;
+  const pctPagas = (pagas / total) * 100;
+  const pctVencidas = (vencidas / total) * 100;
+  const pctAVencer = (aVencer / total) * 100;
+
+  return (
+    <div className="border border-border rounded-lg bg-card p-5 space-y-4">
+      {/* Linha topo */}
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-3 flex-wrap">
+          <button
+            onClick={onClickCliente}
+            className="font-medium text-ink hover:underline text-left"
+          >
+            {a.cliente_nome}
+          </button>
+          {a.tipo && (
+            <span className="text-xs text-muted-foreground">{a.tipo}</span>
+          )}
+        </div>
+        <span className={`text-xs px-2 py-0.5 rounded-full ${st.color}`}>{st.label}</span>
+      </div>
+
+      {/* Grid 4 valores */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+        <Valor label="Valor original" value={formatMoney(Number(a.valor_original || 0))} />
+        <Valor label="Valor final" value={formatMoney(Number(a.valor_final || 0))} />
+        <Valor
+          label="Parcelas"
+          value={`${pagas}/${total} pagas`}
+        />
+        <Valor label="Valor pago" value={formatMoney(Number(a.valor_pago || 0))} />
+      </div>
+
+      {/* Barra de progresso */}
+      <div className="space-y-1.5">
+        <div className="flex h-2.5 rounded overflow-hidden bg-muted">
+          {pagas > 0 && (
+            <div
+              style={{ width: `${pctPagas}%`, background: "#22C55E" }}
+              title={`${pagas} paga(s)`}
+            />
+          )}
+          {vencidas > 0 && (
+            <div
+              style={{ width: `${pctVencidas}%`, background: "#EF4444" }}
+              title={`${vencidas} vencida(s)`}
+            />
+          )}
+          {aVencer > 0 && (
+            <div
+              style={{ width: `${pctAVencer}%`, background: "#D1D5DB" }}
+              title={`${aVencer} a vencer`}
+            />
+          )}
+        </div>
+        <div className="flex items-center gap-4 text-xs text-muted-foreground">
+          <Legend color="#22C55E" label={`${pagas} paga(s)`} />
+          {vencidas > 0 && <Legend color="#EF4444" label={`${vencidas} vencida(s)`} />}
+          <Legend color="#D1D5DB" label={`${aVencer} a vencer`} />
+        </div>
+      </div>
+
+      {/* Rodapé */}
+      <div className="flex items-center justify-between text-xs text-muted-foreground flex-wrap gap-2 pt-1 border-t border-border">
+        <div>
+          {a.proxima_parcela_data ? (
+            <>
+              Próxima parcela:{" "}
+              <span className="text-ink font-medium">
+                {formatDate(a.proxima_parcela_data)}
+              </span>
+              {a.proxima_parcela_valor != null && (
+                <>
+                  {" · "}
+                  <span className="text-ink font-medium">
+                    {formatMoney(Number(a.proxima_parcela_valor))}
+                  </span>
+                </>
+              )}
+            </>
+          ) : (
+            <span>Sem próxima parcela em aberto</span>
+          )}
+        </div>
+        <div className="space-x-3">
+          {a.negociado_por_nome && (
+            <span>
+              Negociado por: <span className="text-ink">{a.negociado_por_nome}</span>
+            </span>
+          )}
+          {a.aprovado_por_nome && (
+            <span>
+              Aprovado por: <span className="text-ink">{a.aprovado_por_nome}</span>
+            </span>
+          )}
+        </div>
+      </div>
+
+      {a.observacao && (
+        <div className="text-xs text-muted-foreground italic border-l-2 border-border pl-3">
+          {a.observacao}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Valor({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <div className="text-xs uppercase text-muted-foreground">{label}</div>
+      <div className="tabular-nums font-medium mt-0.5">{value}</div>
+    </div>
+  );
+}
+
+function Legend({ color, label }: { color: string; label: string }) {
+  return (
+    <span className="flex items-center gap-1.5">
+      <span
+        className="inline-block w-2 h-2 rounded-sm"
+        style={{ background: color }}
+      />
+      {label}
+    </span>
   );
 }

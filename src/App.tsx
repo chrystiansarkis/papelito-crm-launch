@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppShell } from "./layouts/AppShell";
 import { Inicio } from "./pages/Inicio";
 import Carteira from "@/pages/Carteira";
+import Cliente from "@/pages/Cliente";
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 60_000, refetchOnWindowFocus: false } },
@@ -22,6 +23,7 @@ export default function App() {
             <Route element={<AppShell />}>
               <Route path="/" element={<Inicio />} />
               <Route path="/carteira" element={<Carteira />} />
+              <Route path="/cliente/:id" element={<Cliente />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Route>
           </Routes>

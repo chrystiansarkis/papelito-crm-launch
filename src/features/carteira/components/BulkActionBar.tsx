@@ -1,4 +1,4 @@
-import { CheckCircle, Download, Mail, Tag } from "lucide-react";
+import { CheckCircle, Download, Mail, Tag, type LucideIcon } from "lucide-react";
 
 export type BulkActionBarProps = {
   selectedCount: number;
@@ -32,13 +32,7 @@ export function BulkActionBar({ selectedCount, onClear }: BulkActionBarProps) {
   );
 }
 
-function BulkBtn({
-  icon: Icon,
-  label,
-}: {
-  icon: React.ComponentType<{ className?: string; strokeWidth?: number }>;
-  label: string;
-}) {
+function BulkBtn({ icon: Icon, label }: { icon: LucideIcon; label: string }) {
   return (
     <button
       type="button"

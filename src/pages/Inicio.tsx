@@ -73,11 +73,18 @@ export function Inicio() {
   const [erro, setErro] = useState(false);
 
   useEffect(() => {
+    const db = publicDb as unknown as {
+      from: (t: string) => {
+        select: (cols: string) => {
+          maybeSingle: () => Promise<{ data: unknown; error: unknown }>;
+        } & Promise<{ data: unknown; error: unknown }>;
+      };
+    };
     Promise.all([
-      publicDb.from("vw_inicio_kpis" as never).select("*").maybeSingle(),
-      publicDb.from("vw_inicio_faturamento_mensal" as never).select("mes_ref, faturamento"),
-      publicDb.from("vw_inicio_top_semana" as never).select("*"),
-      publicDb.from("vw_inicio_em_risco" as never).select("*"),
+      db.from("vw_inicio_kpis").select("*").maybeSingle(),
+      db.from("vw_inicio_faturamento_mensal").select("mes_ref, faturamento"),
+      db.from("vw_inicio_top_semana").select("*"),
+      db.from("vw_inicio_em_risco").select("*"),
     ])
       .then(([k, m, ts, er]) => {
         if (k.error || !k.data) {

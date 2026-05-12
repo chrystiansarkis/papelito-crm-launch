@@ -1,5 +1,14 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import {
+  MessageSquare,
+  Smartphone,
+  Mail,
+  Phone,
+  FileText,
+  ChevronRight,
+  type LucideIcon,
+} from "lucide-react";
 import { publicDb } from "@/lib/supabase";
 import { SCORE_COLOR, formatMoney, formatDate } from "@/lib/clienteBadges";
 
@@ -78,6 +87,43 @@ type Promessa = {
   registrado_por_nome: string | null;
 };
 
+type ReguaKpis = {
+  enviadas_7d: number | null;
+  agendadas_hoje: number | null;
+  agendadas_7d: number | null;
+  taxa_sucesso_30d: number | null;
+};
+
+type ReguaPasso = {
+  passo_ordem: number;
+  dia_atraso: number;
+  canal: string;
+  acao: string | null;
+  template_nome: string | null;
+};
+
+type ReguaProxima = {
+  id: string;
+  cliente_id: string;
+  cliente_nome: string;
+  vendedor_nome: string | null;
+  scheduled_at: string;
+  canal: string;
+  acao: string | null;
+  status: string;
+};
+
+type ReguaHistorico = {
+  id: string;
+  cliente_id: string;
+  cliente_nome: string;
+  sent_at: string;
+  canal: string;
+  acao: string | null;
+  status: string;
+  observacao: string | null;
+};
+
 const PAGE_SIZE = 50;
 
 type Aba = "carteira" | "acordos" | "regua";
@@ -97,6 +143,58 @@ const SITUACAO_PROMESSA: Record<string, { label: string; color: string; ordem: n
   cumprida: { label: "Cumprida", color: "bg-green-100 text-green-800", ordem: 5 },
   quebrada: { label: "Quebrada", color: "bg-red-200 text-red-900", ordem: 6 },
 };
+
+const CANAL_ICON: Record<string, LucideIcon> = {
+  sms: MessageSquare,
+  whatsapp: Smartphone,
+  email: Mail,
+  ligacao: Phone,
+  carta: FileText,
+};
+
+const CANAL_LABEL: Record<string, string> = {
+  sms: "SMS",
+  whatsapp: "WhatsApp",
+  email: "E-mail",
+  ligacao: "Ligação",
+  carta: "Carta",
+};
+
+const STATUS_HIST: Record<string, { label: string; color: string }> = {
+  enviada: { label: "Enviada", color: "bg-gray-100 text-gray-700" },
+  lida: { label: "Lida", color: "bg-blue-100 text-blue-800" },
+  respondida: { label: "Respondida", color: "bg-green-100 text-green-800" },
+  falhou: { label: "Falhou", color: "bg-red-100 text-red-800" },
+};
+
+const STATUS_PROX: Record<string, { label: string; color: string }> = {
+  agendada: { label: "Agendada", color: "bg-gray-100 text-gray-700" },
+  enviando: { label: "Enviando", color: "bg-blue-100 text-blue-800" },
+  pendente: { label: "Pendente", color: "bg-yellow-100 text-yellow-800" },
+  cancelada: { label: "Cancelada", color: "bg-gray-100 text-gray-500" },
+};
+
+function quandoLabel(iso: string): { text: string; cls: string } {
+  const d = new Date(iso);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const target = new Date(d);
+  target.setHours(0, 0, 0, 0);
+  const diffDays = Math.round((target.getTime() - today.getTime()) / 86400000);
+  if (diffDays === 0) return { text: "Hoje", cls: "text-orange-600 font-medium" };
+  if (diffDays === 1) return { text: "Amanhã", cls: "text-yellow-700 font-medium" };
+  return { text: formatDate(iso), cls: "" };
+}
+
+function CanalCell({ canal }: { canal: string }) {
+  const Icon = CANAL_ICON[canal] ?? MessageSquare;
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <Icon size={14} className="text-muted-foreground" />
+      {CANAL_LABEL[canal] ?? canal}
+    </span>
+  );
+}
 
 export default function Cobranca() {
   const navigate = useNavigate();
@@ -124,6 +222,15 @@ export default function Cobranca() {
   const [filtroSituacao, setFiltroSituacao] = useState<
     "" | "pendentes" | "cumprida" | "quebrada"
   >("");
+
+  // === Estados Aba 3 ===
+  const [reguaKpis, setReguaKpis] = useState<ReguaKpis | null>(null);
+  const [passos, setPassos] = useState<ReguaPasso[]>([]);
+  const [proximas, setProximas] = useState<ReguaProxima[]>([]);
+  const [historico, setHistorico] = useState<ReguaHistorico[]>([]);
+  const [loadingAba3, setLoadingAba3] = useState(false);
+  const [filtroCanal, setFiltroCanal] = useState("");
+  const [mostrarTodasProximas, setMostrarTodasProximas] = useState(false);
 
   useEffect(() => {
     publicDb
@@ -192,6 +299,24 @@ export default function Cobranca() {
     });
   }, [aba]);
 
+  // === Fetch da Aba 3 ===
+  useEffect(() => {
+    if (aba !== "regua") return;
+    setLoadingAba3(true);
+    Promise.all([
+      publicDb.from("vw_regua_kpis" as never).select("*").maybeSingle(),
+      publicDb.from("vw_regua_passos" as never).select("*"),
+      publicDb.from("vw_regua_proximas" as never).select("*"),
+      publicDb.from("vw_regua_historico" as never).select("*"),
+    ]).then(([kRes, paRes, prRes, hRes]) => {
+      setReguaKpis(((kRes as { data: unknown }).data as ReguaKpis | null) ?? null);
+      setPassos(((paRes as { data: unknown }).data as ReguaPasso[]) ?? []);
+      setProximas(((prRes as { data: unknown }).data as ReguaProxima[]) ?? []);
+      setHistorico(((hRes as { data: unknown }).data as ReguaHistorico[]) ?? []);
+      setLoadingAba3(false);
+    });
+  }, [aba]);
+
   const totalPages = Math.ceil(total / PAGE_SIZE);
   const pctVencido = Number(kpis?.pct_vencido ?? 0);
 
@@ -235,13 +360,261 @@ export default function Cobranca() {
         </TabBtn>
       </div>
 
-      {/* Aba 3 — placeholder */}
+      {/* Aba 3 — Régua de comunicação */}
       {aba === "regua" && (
-        <div className="bg-card border border-border rounded-lg p-16 text-center">
-          <div className="text-4xl mb-2">🚧</div>
-          <div className="font-display text-xl">Em construção</div>
-          <div className="text-sm text-muted-foreground mt-1">Disponível em breve</div>
-        </div>
+        <>
+          {loadingAba3 && (
+            <div className="text-sm text-muted-foreground">Carregando...</div>
+          )}
+
+          {!loadingAba3 && (
+            <>
+              {/* Bloco 1: KPIs */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                <Kpi
+                  label="Enviadas (7d)"
+                  value={String(reguaKpis?.enviadas_7d ?? 0)}
+                />
+                <Kpi
+                  label="Agendadas hoje"
+                  value={String(reguaKpis?.agendadas_hoje ?? 0)}
+                  valueClass={
+                    (reguaKpis?.agendadas_hoje ?? 0) > 0 ? "text-yellow-600" : ""
+                  }
+                />
+                <Kpi
+                  label="Próximos 7 dias"
+                  value={String(reguaKpis?.agendadas_7d ?? 0)}
+                />
+                <Kpi
+                  label="Taxa de sucesso (30d)"
+                  value={
+                    reguaKpis?.taxa_sucesso_30d == null
+                      ? "—"
+                      : `${Number(reguaKpis.taxa_sucesso_30d).toFixed(0)}%`
+                  }
+                  valueClass={
+                    reguaKpis?.taxa_sucesso_30d != null &&
+                    Number(reguaKpis.taxa_sucesso_30d) >= 50
+                      ? "text-green-600"
+                      : ""
+                  }
+                />
+              </div>
+
+              {/* Bloco 2: Régua ativa */}
+              <section className="space-y-3">
+                <div className="flex items-baseline gap-2">
+                  <h2 className="font-display text-2xl">Régua ativa</h2>
+                  <span className="text-sm text-muted-foreground">
+                    ({passos.length} passo{passos.length === 1 ? "" : "s"})
+                  </span>
+                </div>
+
+                {passos.length === 0 ? (
+                  <div className="bg-card border border-border rounded-lg p-10 text-center">
+                    <div className="text-3xl mb-2">📋</div>
+                    <div className="text-sm text-muted-foreground">
+                      Nenhuma régua configurada ainda
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex gap-2 overflow-x-auto pb-2 items-stretch">
+                    {passos.map((p, idx) => {
+                      const Icon = CANAL_ICON[p.canal] ?? MessageSquare;
+                      return (
+                        <div key={`${p.passo_ordem}-${idx}`} className="flex items-center gap-2 shrink-0">
+                          <div className="min-w-[180px] border border-border rounded-lg p-3 bg-card">
+                            <div className="font-display text-lg">Dia {p.dia_atraso}</div>
+                            <div className="flex items-center gap-1.5 text-sm mt-1">
+                              <Icon size={14} className="text-muted-foreground" />
+                              {CANAL_LABEL[p.canal] ?? p.canal}
+                            </div>
+                            {p.acao && (
+                              <div className="text-xs text-muted-foreground mt-1">
+                                {p.acao}
+                              </div>
+                            )}
+                          </div>
+                          {idx < passos.length - 1 && (
+                            <ChevronRight className="opacity-30 shrink-0" />
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </section>
+
+              {/* Bloco 3: Próximas comunicações */}
+              <section className="space-y-3">
+                <div className="flex items-baseline gap-2">
+                  <h2 className="font-display text-2xl">Próximas comunicações</h2>
+                  <span className="text-sm text-muted-foreground">
+                    ({proximas.length} agendada{proximas.length === 1 ? "" : "s"})
+                  </span>
+                </div>
+
+                {proximas.length === 0 ? (
+                  <div className="bg-card border border-border rounded-lg p-10 text-center text-sm text-muted-foreground">
+                    Nenhuma comunicação agendada.
+                  </div>
+                ) : (
+                  <>
+                    <div className="border border-border rounded-lg overflow-hidden bg-card">
+                      <table className="w-full text-sm">
+                        <thead className="bg-muted text-xs uppercase text-muted-foreground">
+                          <tr>
+                            <th className="text-left px-4 py-2 font-medium">Cliente</th>
+                            <th className="text-left px-4 py-2 font-medium">Vendedor</th>
+                            <th className="text-left px-4 py-2 font-medium">Quando</th>
+                            <th className="text-left px-4 py-2 font-medium">Canal</th>
+                            <th className="text-left px-4 py-2 font-medium">Ação</th>
+                            <th className="text-left px-4 py-2 font-medium">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(mostrarTodasProximas ? proximas : proximas.slice(0, 50)).map((p) => {
+                            const q = quandoLabel(p.scheduled_at);
+                            const st = STATUS_PROX[p.status] ?? {
+                              label: p.status,
+                              color: "bg-gray-100 text-gray-700",
+                            };
+                            return (
+                              <tr
+                                key={p.id}
+                                onClick={() => navigate(`/cliente/${p.cliente_id}`)}
+                                className="border-t border-border hover:bg-muted/50 cursor-pointer"
+                              >
+                                <td className="px-4 py-2 font-medium">{p.cliente_nome}</td>
+                                <td className="px-4 py-2">{p.vendedor_nome ?? "—"}</td>
+                                <td className={`px-4 py-2 ${q.cls}`}>{q.text}</td>
+                                <td className="px-4 py-2">
+                                  <CanalCell canal={p.canal} />
+                                </td>
+                                <td className="px-4 py-2">{p.acao ?? "—"}</td>
+                                <td className="px-4 py-2">
+                                  <span className={`text-xs px-2 py-0.5 rounded font-medium ${st.color}`}>
+                                    {st.label}
+                                  </span>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                    {proximas.length > 50 && !mostrarTodasProximas && (
+                      <div className="text-center">
+                        <button
+                          onClick={() => setMostrarTodasProximas(true)}
+                          className="px-3 py-1.5 border border-border rounded-lg text-sm hover:bg-muted"
+                        >
+                          Ver mais ({proximas.length - 50})
+                        </button>
+                      </div>
+                    )}
+                  </>
+                )}
+              </section>
+
+              {/* Bloco 4: Histórico recente */}
+              <section className="space-y-3">
+                <div className="flex items-baseline justify-between gap-2 flex-wrap">
+                  <div className="flex items-baseline gap-2">
+                    <h2 className="font-display text-2xl">Comunicações enviadas</h2>
+                    <span className="text-sm text-muted-foreground">
+                      ({historico.length})
+                    </span>
+                  </div>
+                  <select
+                    value={filtroCanal}
+                    onChange={(e) => setFiltroCanal(e.target.value)}
+                    className="px-3 py-2 border border-border rounded-lg text-sm bg-card"
+                  >
+                    <option value="">Todos os canais</option>
+                    <option value="sms">SMS</option>
+                    <option value="whatsapp">WhatsApp</option>
+                    <option value="email">E-mail</option>
+                    <option value="ligacao">Ligação</option>
+                    <option value="carta">Carta</option>
+                  </select>
+                </div>
+
+                {(() => {
+                  const filtrado = (filtroCanal
+                    ? historico.filter((h) => h.canal === filtroCanal)
+                    : historico
+                  ).slice(0, 100);
+                  if (filtrado.length === 0) {
+                    return (
+                      <div className="bg-card border border-border rounded-lg p-10 text-center text-sm text-muted-foreground">
+                        Nenhuma comunicação registrada ainda.
+                      </div>
+                    );
+                  }
+                  return (
+                    <div className="border border-border rounded-lg overflow-hidden bg-card">
+                      <table className="w-full text-sm">
+                        <thead className="bg-muted text-xs uppercase text-muted-foreground">
+                          <tr>
+                            <th className="text-left px-4 py-2 font-medium">Data</th>
+                            <th className="text-left px-4 py-2 font-medium">Cliente</th>
+                            <th className="text-left px-4 py-2 font-medium">Canal</th>
+                            <th className="text-left px-4 py-2 font-medium">Ação</th>
+                            <th className="text-left px-4 py-2 font-medium">Status</th>
+                            <th className="text-left px-4 py-2 font-medium">Observação</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {filtrado.map((h) => {
+                            const st = STATUS_HIST[h.status] ?? {
+                              label: h.status,
+                              color: "bg-gray-100 text-gray-700",
+                            };
+                            return (
+                              <tr
+                                key={h.id}
+                                onClick={() => navigate(`/cliente/${h.cliente_id}`)}
+                                className="border-t border-border hover:bg-muted/50 cursor-pointer"
+                              >
+                                <td className="px-4 py-2 whitespace-nowrap">
+                                  {formatDate(h.sent_at)}
+                                </td>
+                                <td className="px-4 py-2 font-medium">{h.cliente_nome}</td>
+                                <td className="px-4 py-2">
+                                  <CanalCell canal={h.canal} />
+                                </td>
+                                <td className="px-4 py-2">{h.acao ?? "—"}</td>
+                                <td className="px-4 py-2">
+                                  <span className={`text-xs px-2 py-0.5 rounded font-medium ${st.color}`}>
+                                    {st.label}
+                                  </span>
+                                </td>
+                                <td className="px-4 py-2 max-w-[240px]">
+                                  {h.observacao ? (
+                                    <span
+                                      className="block truncate text-muted-foreground"
+                                      title={h.observacao}
+                                    >
+                                      {h.observacao}
+                                    </span>
+                                  ) : (
+                                    <span className="text-muted-foreground">—</span>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  );
+                })()}
+              </section>
+            </>
+          )}
+        </>
       )}
 
       {/* Aba 1 — Carteira */}

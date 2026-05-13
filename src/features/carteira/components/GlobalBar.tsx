@@ -1,9 +1,19 @@
+// Mitigates: A05 (filtros vão via GlobalFiltersChips → useGlobalFilters →
+//            schema zod, sem string concat)
+//
+// GlobalBar: barra sticky no topo da página. Linha 1 mostra os filtros globais
+// interativos (chips dropdown, com disabled+tooltip para filtros sem dado ou
+// não aplicáveis à view). Linha 2 mostra visões salvas + métricas agregadas.
 import { Plus, Star } from "lucide-react";
 import { Chip } from "@/components/common/Chip";
 import { AppButton } from "@/components/common/AppButton";
 import { formatMoney } from "@/lib/format";
+import {
+  GlobalFiltersChips,
+  useGlobalFilters,
+  type GlobalFilters,
+} from "@/features/shared/globalFilters";
 
-export type GlobalBarFilter = { label: string; value: string };
 export type SavedView = { name: string; starred?: boolean };
 export type GlobalBarMetrics = {
   count: number;
@@ -13,23 +23,13 @@ export type GlobalBarMetrics = {
 };
 
 export type GlobalBarProps = {
-  filters?: GlobalBarFilter[];
+  scope: "carteira" | "pedidos";
+  vendedores?: string[];
   savedViews?: SavedView[];
   metrics: GlobalBarMetrics;
   onSaveView?: () => void;
   onAddView?: () => void;
 };
-
-const DEFAULT_FILTERS: GlobalBarFilter[] = [
-  { label: "Vendedor", value: "Todos" },
-  { label: "Região", value: "Todas" },
-  { label: "Estado", value: "Todos" },
-  { label: "Tipo", value: "Todos" },
-  { label: "Programa", value: "Todos" },
-  { label: "Saúde", value: "Todas" },
-  { label: "RFV", value: "Todos" },
-  { label: "Período", value: String(new Date().getFullYear()) },
-];
 
 const DEFAULT_VIEWS: SavedView[] = [
   { name: "Minha carteira", starred: true },
@@ -45,34 +45,34 @@ function formatMaybeMoney(v: string | number | null | undefined): string | null 
 }
 
 export function GlobalBar({
-  filters = DEFAULT_FILTERS,
+  scope,
+  vendedores = [],
   savedViews = DEFAULT_VIEWS,
   metrics,
   onSaveView,
   onAddView,
 }: GlobalBarProps) {
+  const { filters, patch, reset } = useGlobalFilters();
+
   const ytdStr = formatMaybeMoney(metrics.ytd);
   const ticketStr = formatMaybeMoney(metrics.avgTicket);
   const countLabel = metrics.countLabel ?? "clientes";
 
   return (
     <div className="sticky top-0 z-10 bg-white border-b border-gray-line px-4 sm:px-6 lg:px-7 py-3.5 space-y-3">
-      {/* Linha 1: Filtros + Salvar */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="label-caps text-gray-text mr-1">Filtros</span>
-          {filters.map((f, i) => (
-            <Chip key={`${f.label}-${i}`} variant="default" hasDropdown>
-              {f.label}: {f.value}
-            </Chip>
-          ))}
-        </div>
+        <GlobalFiltersChips
+          scope={scope}
+          filters={filters}
+          vendedores={vendedores}
+          onPatch={(delta: Partial<GlobalFilters>) => patch(delta)}
+          onReset={reset}
+        />
         <AppButton variant="link" onClick={onSaveView}>
           Salvar visão
         </AppButton>
       </div>
 
-      {/* Linha 2: Visões salvas + métricas */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-2 flex-wrap">
           <span className="label-caps text-gray-text mr-1">Visões</span>

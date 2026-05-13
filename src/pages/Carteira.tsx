@@ -1,5 +1,7 @@
 // Mitigates: A10 (erros do supabase ficam atrás de ErrorState; sem texto do Postgres)
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
+import { Plus } from "lucide-react";
 import { Pagination } from "@/components/common/Pagination";
 import { ErrorState } from "@/components/common/ErrorState";
 import {
@@ -20,14 +22,7 @@ import {
   type PreFilter,
   type ViewMode,
 } from "@/features/carteira";
-
-const INITIAL_FILTRO: CarteiraFiltro = {
-  busca: "",
-  saude: "",
-  vendedor: "",
-  programa: "",
-  page: 0,
-};
+import { useGlobalFilters } from "@/features/shared/globalFilters";
 
 function diasDesde(d: string | null): number | null {
   if (!d) return null;
@@ -39,13 +34,11 @@ function diasDesde(d: string | null): number | null {
 function applyPreFilter(rows: CarteiraCliente[], p: PreFilter): CarteiraCliente[] {
   switch (p) {
     case "em_queda":
-      return rows.filter((r) => r.saude === "em_risco" || r.saude === "inadimplente");
+      return rows.filter((r) => r.saude === "em_risco" || r.saude === "atencao");
     case "sem_contato":
-      return rows.filter((r) => (diasDesde(r.ultima_compra) ?? 0) >= 30);
+      return rows.filter((r) => (diasDesde(r.data_ultima_compra) ?? 0) >= 30);
     case "em_campanha":
       return rows.filter((r) => r.em_familia_papelito || r.em_pdv_perfeito);
-    case "tier_a":
-      return rows.filter((r) => (r.tier ?? "").toLowerCase() === "a");
     case "todos":
     default:
       return rows;
@@ -53,12 +46,47 @@ function applyPreFilter(rows: CarteiraCliente[], p: PreFilter): CarteiraCliente[
 }
 
 export default function Carteira() {
-  const [filtro, setFiltro] = useState<CarteiraFiltro>(INITIAL_FILTRO);
+  const { filters: gf } = useGlobalFilters();
+  const [page, setPage] = useState(0);
   const [view, setView] = useState<ViewMode>("table");
   const [preFilter, setPreFilter] = useState<PreFilter>("todos");
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
-  const kpisQuery = useCarteiraKpis();
+  // Compõe o filtro da API a partir dos filtros globais + state local de page.
+  const filtro: CarteiraFiltro = useMemo(
+    () => ({
+      busca: gf.busca,
+      saude: gf.saude,
+      vendedor: gf.vendedor,
+      programa: gf.programa,
+      uf: gf.uf,
+      tipo: gf.tipo,
+      score: gf.score,
+      tier: gf.tier,
+      fonte: gf.fonte,
+      periodo: gf.periodo,
+      page,
+    }),
+    [gf, page],
+  );
+
+  // Reset de page quando qualquer filtro global mudar
+  useEffect(() => {
+    setPage(0);
+  }, [
+    gf.busca,
+    gf.saude,
+    gf.vendedor,
+    gf.programa,
+    gf.uf,
+    gf.tipo,
+    gf.score,
+    gf.tier,
+    gf.fonte,
+    gf.periodo,
+  ]);
+
+  const kpisQuery = useCarteiraKpis(filtro);
   const vendedoresQuery = useCarteiraVendedores();
   const clientesQuery = useCarteiraClientes(filtro);
 
@@ -96,8 +124,12 @@ export default function Carteira() {
   return (
     <div className="flex flex-col min-h-full">
       <GlobalBar
+        scope="carteira"
+        vendedores={vendedoresQuery.data ?? []}
         metrics={{
-          count: kpisQuery.data?.total ?? total,
+          // count e ytd refletem o filtro atual — vêm das mesmas queries que
+          // alimentam a lista, então o header bate com o que está exibido.
+          count: total,
           countLabel: "clientes",
           ytd: kpisQuery.data?.faturamento ?? null,
           avgTicket: null,
@@ -105,7 +137,6 @@ export default function Carteira() {
       />
 
       <div className="p-4 sm:p-6 lg:p-7 max-w-[1600px] w-full mx-auto space-y-5">
-        {/* Header */}
         <div className="flex items-start justify-between gap-3 flex-wrap">
           <div>
             <h1 className="font-display text-3xl sm:text-4xl text-ink mb-1">Carteira</h1>
@@ -113,7 +144,16 @@ export default function Carteira() {
               Trabalhe sua lista completa de clientes — escolha o modo que faz sentido pra tarefa
             </p>
           </div>
-          <ViewToggle active={view} onChange={onViewChange} />
+          <div className="flex items-center gap-2">
+            <Link
+              to="/carteira/novo"
+              className="inline-flex items-center gap-1.5 px-3 py-2 text-[12.5px] font-semibold bg-brand hover:bg-[#E5B814] active:bg-brand-deep text-ink rounded-md transition-all"
+            >
+              <Plus className="w-3.5 h-3.5" strokeWidth={2.5} />
+              Novo cliente
+            </Link>
+            <ViewToggle active={view} onChange={onViewChange} />
+          </div>
         </div>
 
         <SubFilters />
@@ -145,10 +185,10 @@ export default function Carteira() {
             </div>
             <div className="mt-4">
               <Pagination
-                page={filtro.page}
+                page={page}
                 pageSize={CARTEIRA_PAGE_SIZE}
                 total={total}
-                onChange={(page) => setFiltro((p) => ({ ...p, page }))}
+                onChange={setPage}
               />
             </div>
           </div>

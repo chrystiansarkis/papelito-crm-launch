@@ -1,18 +1,13 @@
-// Mitigates: A01 (consulta via supabase-js + RLS no banco, escopo crm),
-//            A05 (filtros validados com zod antes do query builder; sem concat),
+// Mitigates: A01 (RLS no banco), A05 (id validado antes do query builder),
 //            A10 (erro do Supabase propagado para react-query; UI mostra texto genérico)
 //
-// Fonte: public.vw_pedidos_enriched (vw_pedidos + JOIN vw_cliente_ficha).
-// Permite aplicar filtros globais (uf, tipo, saúde, score, programa) que
-// vivem no cliente — sem nova request.
+// Fonte: public.vw_pedidos_enriched. Pedidos são read-only (origem ERP) — esta
+// API só lê o header completo de um pedido específico.
+import { z } from "zod";
 import { publicDb } from "@/lib/supabase";
-import { pedidoFiltroSchema } from "../schemas";
-import { PEDIDOS_PAGE_SIZE, type Pedido, type PedidoFiltro } from "../types";
+import type { Pedido } from "../types";
 
-export type ListPedidosResult = {
-  rows: Pedido[];
-  total: number;
-};
+const idSchema = z.string().min(1).max(64);
 
 type Row = {
   id: string;
@@ -97,51 +92,14 @@ function rowToPedido(r: Row): Pedido {
   };
 }
 
-export async function listPedidos(filtro: PedidoFiltro): Promise<ListPedidosResult> {
-  const safe = pedidoFiltroSchema.parse(filtro);
-
-  let query = publicDb
-    .from("vw_pedidos_enriched" as never)
-    .select("*", { count: "exact" })
-    .order("data_pedido", { ascending: false, nullsFirst: false });
-
-  if (safe.busca) {
-    query = query.or(`numero.ilike.%${safe.busca}%,cliente_nome.ilike.%${safe.busca}%`);
-  }
-  if (safe.status) query = query.eq("status", safe.status);
-  if (safe.fonte) query = query.eq("fonte", safe.fonte);
-  if (safe.vendedor) query = query.eq("vendedor_nome", safe.vendedor);
-  // Filtros do cliente (via JOIN)
-  if (safe.uf) query = query.eq("cliente_uf", safe.uf);
-  if (safe.tipo) query = query.eq("cliente_tipo", safe.tipo);
-  if (safe.saude) query = query.eq("cliente_saude", safe.saude);
-  if (safe.score) query = query.eq("cliente_score_pagamento", safe.score);
-  if (safe.tier) query = query.eq("cliente_tier", safe.tier);
-  if (safe.programa === "familia") query = query.eq("cliente_em_familia", true);
-  if (safe.programa === "pdv") query = query.eq("cliente_em_pdv", true);
-  if (safe.periodo) query = query.eq("ano_pedido", Number(safe.periodo));
-
-  const from = safe.page * PEDIDOS_PAGE_SIZE;
-  const to = (safe.page + 1) * PEDIDOS_PAGE_SIZE - 1;
-  query = query.range(from, to);
-
-  const { data, count, error } = await query;
-  if (error) throw error;
-
-  const rows = ((data ?? []) as Row[]).map(rowToPedido);
-  return { rows, total: count ?? 0 };
-}
-
-export async function listVendedoresPedidos(): Promise<string[]> {
-  // Fonte: vw_pedidos_vendedores (view DISTINCT). Sem ela, o cap default de
-  // 1000 linhas do PostgREST tira vendedores que ficam fora da primeira página.
+export async function getPedido(id: string): Promise<Pedido | null> {
+  const safeId = idSchema.parse(id);
   const { data, error } = await publicDb
-    .from("vw_pedidos_vendedores" as never)
-    .select("vendedor_nome");
+    .from("vw_pedidos_enriched" as never)
+    .select("*")
+    .eq("id", safeId)
+    .maybeSingle();
   if (error) throw error;
-  const rows = (data ?? []) as { vendedor_nome: string | null }[];
-  return rows
-    .map((d) => d.vendedor_nome)
-    .filter((v): v is string => !!v)
-    .sort();
+  if (!data) return null;
+  return rowToPedido(data as Row);
 }

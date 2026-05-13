@@ -124,8 +124,16 @@ const COLUMN_RENDERERS: Record<CarteiraColumnId, ColumnRenderer> = {
   cliente: {
     align: "left",
     headerClass: "min-w-[180px]",
-    cell: (c) => (
-      <td className="px-3 py-2.5">
+    cell: (c, ctx) => (
+      <td
+        className={cn(
+          "px-3 py-2.5 sticky left-8 z-10 border-r border-gray-line transition-shadow",
+          ctx.isSelected
+            ? "bg-brand-soft/95"
+            : "bg-white group-hover/row:bg-gray-soft",
+          ctx.scrolled && "shadow-[4px_0_6px_-2px_rgba(0,0,0,0.06)]",
+        )}
+      >
         <div className="flex flex-col">
           <span className="text-[12.5px] font-medium text-ink">{c.nome}</span>
           <span className="text-[11px] text-gray-text">

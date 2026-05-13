@@ -2,6 +2,15 @@ import { CardWrap } from "../visaoGeral/CardWrap";
 import { formatMoneyShort } from "@/lib/format";
 import { cagr } from "../../lib/vendasMixPivot";
 import type { ClienteFichaKpi } from "../../types";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  Tooltip,
+  LabelList,
+  ResponsiveContainer,
+  Cell,
+} from "recharts";
 
 const ANOS = [2020, 2021, 2022, 2023, 2024, 2025, 2026] as const;
 const ANO_ATUAL = new Date().getFullYear();
@@ -33,11 +42,6 @@ export function FaturamentoAnualCard({ kpi, isLoading }: { kpi: ClienteFichaKpi 
   };
 
   const tendencia = kpi.tendencia_2026 ?? kpi.fat_2026 ?? 0;
-  const max = Math.max(
-    ...ANOS.map((a) => valores[a] ?? 0),
-    tendencia,
-    1,
-  );
 
   const cagrPct = cagr(kpi.fat_2020, kpi.fat_2025, 5);
   const ydyPct = kpi.fat_2025 && kpi.fat_2025 > 0
@@ -56,41 +60,79 @@ export function FaturamentoAnualCard({ kpi, isLoading }: { kpi: ClienteFichaKpi 
     return parts.join(" · ");
   })();
 
+  // Dados pro Recharts. 2026 entra com `valor` (realizado YTD) e
+  // `valor_projetado` (extrapolado, dashed) — Bar transparente com stroke.
+  const data = ANOS.map((ano) => {
+    const v = valores[ano] ?? 0;
+    const isAtual = ano === ANO_ATUAL;
+    return {
+      ano: String(ano),
+      valor: v,
+      // Projeção: só a parte ACIMA do realizado, pra Bar empilhada visual.
+      valor_projetado: isAtual && tendencia > v ? tendencia - v : 0,
+      isAtual,
+      tendenciaAbs: isAtual ? tendencia : null,
+    };
+  });
+
   return (
     <CardWrap title="Faturamento anual" subtitle={subtitle || "2020 a 2026 · ano atual em destaque"}>
-      <div className="flex items-end gap-3 h-48 pt-6">
-        {ANOS.map((ano) => {
-          const v = valores[ano] ?? 0;
-          const isAtual = ano === ANO_ATUAL;
-          const barH = (v / max) * 100;
-          const projH = isAtual && tendencia > v ? (tendencia / max) * 100 : null;
-          return (
-            <div key={ano} className="flex-1 flex flex-col items-center min-w-0">
-              <div className="text-[10px] tabular-nums text-ink-soft mb-1 truncate">
-                {v > 0 ? formatMoneyShort(v) : "—"}
-              </div>
-              <div className="relative w-full flex-1 flex items-end">
-                {projH != null && (
-                  <div
-                    className="absolute inset-x-2 bottom-0 bg-amber-200/60 rounded-t border-t border-dashed border-amber-500"
-                    style={{ height: `${projH}%` }}
-                    title={`Projeção: ${formatMoneyShort(tendencia)}`}
-                  />
-                )}
-                <div
-                  className={`relative w-full rounded-t ${
-                    isAtual ? "bg-ink" : "bg-amber-500"
-                  }`}
-                  style={{ height: `${Math.max(barH, 1)}%` }}
+      <div className="h-60 w-full pt-2">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={data} margin={{ top: 24, right: 12, left: 0, bottom: 0 }}>
+            <XAxis
+              dataKey="ano"
+              axisLine={false}
+              tickLine={false}
+              tick={{ fontSize: 12, fill: "#3B3B3B" }}
+            />
+            <Tooltip
+              cursor={{ fill: "rgba(0,0,0,0.04)" }}
+              formatter={(value: number, name: string) => {
+                const label = name === "valor_projetado" ? "Projetado" : "Realizado";
+                return [formatMoneyShort(value), label];
+              }}
+              labelFormatter={(label) => `Ano ${label}`}
+              contentStyle={{ fontSize: 12, borderRadius: 6 }}
+            />
+            <Bar dataKey="valor" stackId="a" radius={[2, 2, 0, 0]}>
+              {data.map((d) => (
+                <Cell
+                  key={d.ano}
+                  fill={d.isAtual ? "#161616" : "#F5C518"}
                 />
-              </div>
-              <div className={`text-xs mt-1 ${isAtual ? "text-ink font-medium" : "text-gray-text"}`}>
-                {ano}
-                {isAtual && <span className="ml-0.5">→</span>}
-              </div>
-            </div>
-          );
-        })}
+              ))}
+              {/* Label só quando NÃO há projeção empilhada */}
+              <LabelList
+                dataKey="valor"
+                position="top"
+                formatter={(v: number, _entry: unknown, index: number) => {
+                  const row = data[index];
+                  if (row?.valor_projetado > 0) return "";
+                  return v > 0 ? formatMoneyShort(v) : "";
+                }}
+                style={{ fontSize: 10, fill: "#3B3B3B" }}
+              />
+            </Bar>
+            <Bar
+              dataKey="valor_projetado"
+              stackId="a"
+              fill="rgba(245,197,24,0.15)"
+              stroke="#F5C518"
+              strokeDasharray="4 4"
+              radius={[2, 2, 0, 0]}
+            >
+              <LabelList
+                dataKey="tendenciaAbs"
+                position="top"
+                formatter={(v: number | null) =>
+                  v != null && v > 0 ? formatMoneyShort(v) : ""
+                }
+                style={{ fontSize: 10, fill: "#3B3B3B" }}
+              />
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
       </div>
     </CardWrap>
   );

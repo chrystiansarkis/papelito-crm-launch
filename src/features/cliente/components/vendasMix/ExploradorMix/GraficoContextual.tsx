@@ -1,4 +1,12 @@
 import { useMemo } from "react";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
 import { serieDoEscopo, dayOfYear } from "../../../lib/vendasMixPivot";
 import type { MediaTierGrupoPai, MixFiltros, MixMetrica, VendaLong } from "../../../types";
 
@@ -38,7 +46,6 @@ export function GraficoContextual({
     [vendas, filtros, selecionado, metricaPrim],
   );
 
-  // Série média (só quando comparar=media e há dado de tier)
   const serieMedia = useMemo(() => {
     if (filtros.comparar !== "media" || !mediasTier || mediasTier.length === 0) return null;
     const paiAlvo = selecionado?.split(">")[0];
@@ -56,15 +63,27 @@ export function GraficoContextual({
     return serie.map((s) => map.get(s.key) ?? 0);
   }, [filtros, selecionado, mediasTier, metricaPrim, serie]);
 
-  const valores = serie.map((s) => s.valor);
-  const max = Math.max(1, ...valores, ...(serieMedia ?? []));
-  const positivos = valores.filter((v) => v > 0);
-  const pico = positivos.length ? Math.max(...positivos) : 0;
-  const min = positivos.length ? Math.min(...positivos) : 0;
-  const media = positivos.length ? positivos.reduce((a, b) => a + b, 0) / positivos.length : 0;
+  // Stats contextuais (Bloco 9): identifica QUANDO foi pico/mín.
+  const positivos = serie.filter((s) => s.valor > 0);
+  const picoEntry = positivos.reduce<{ label: string; valor: number } | null>(
+    (best, cur) => (best == null || cur.valor > best.valor ? cur : best),
+    null,
+  );
+  const minEntry = positivos.reduce<{ label: string; valor: number } | null>(
+    (best, cur) => (best == null || cur.valor < best.valor ? cur : best),
+    null,
+  );
+  const media = positivos.length
+    ? positivos.reduce((a, b) => a + b.valor, 0) / positivos.length
+    : 0;
+  const periodoLabel =
+    serie.length === 0
+      ? ""
+      : serie.length === 1
+        ? serie[0].label
+        : `${serie[0].label} → ${serie[serie.length - 1].label}`;
 
   // YoY% (último ano vs anterior, mesma janela cumulativa)
-  const ytd2025 = vendas.filter((v) => v.ano === 2025).reduce((acc, v) => acc + (metricaPrim === "qtd" ? v.qtd : v.valor), 0);
   const today = new Date();
   const monthCutoff = today.getMonth() + 1;
   const ytd2026 = vendas
@@ -77,15 +96,11 @@ export function GraficoContextual({
   const doy = dayOfYear(today);
   const proj2026 = doy > 0 ? (ytd2026 / doy) * 365 : 0;
 
-  // SVG sparkline polyline
-  const W = 600, H = 96;
-  function pathFor(arr: number[]): string {
-    if (arr.length === 0) return "";
-    const stepX = arr.length === 1 ? W : W / (arr.length - 1);
-    return arr
-      .map((v, i) => `${i === 0 ? "M" : "L"}${(i * stepX).toFixed(1)},${(H - (v / max) * H).toFixed(1)}`)
-      .join(" ");
-  }
+  const chartData = serie.map((s, i) => ({
+    label: s.label,
+    valor: s.valor,
+    media: serieMedia ? serieMedia[i] : null,
+  }));
 
   return (
     <div className="border-t border-gray-line p-4">
@@ -94,36 +109,107 @@ export function GraficoContextual({
         <div className="text-sm text-gray-faint">Sem dados.</div>
       ) : (
         <>
-          <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-24" preserveAspectRatio="none">
-            {serieMedia && (
-              <path d={pathFor(serieMedia)} fill="none" stroke="hsl(var(--muted-foreground))" strokeWidth="1.2" strokeDasharray="3 3" />
-            )}
-            <path d={pathFor(serie.map((s) => s.valor))} fill="none" stroke="#d97706" strokeWidth="1.8" />
-            {serie.map((s, i) => {
-              const stepX = serie.length === 1 ? W : W / (serie.length - 1);
-              const x = i * stepX;
-              const y = H - (s.valor / max) * H;
-              return <circle key={s.key} cx={x} cy={y} r={2.5} fill="#d97706" />;
-            })}
-          </svg>
-          <div className="flex justify-between text-[9px] text-gray-faint mt-1">
-            {serie.map((s) => <span key={s.key} className="truncate flex-1 text-center">{s.label}</span>)}
+          <div className="h-[280px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={chartData} margin={{ top: 8, right: 12, bottom: 0, left: 0 }}>
+                <XAxis
+                  dataKey="label"
+                  tick={{ fontSize: 10, fill: "#6B6B66" }}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <YAxis
+                  tick={{ fontSize: 10, fill: "#6B6B66" }}
+                  axisLine={false}
+                  tickLine={false}
+                  width={56}
+                  tickFormatter={(v) => fmt(Number(v), metricaPrim)}
+                />
+                <Tooltip
+                  formatter={(value: number, name: string) => [
+                    fmt(Number(value), metricaPrim),
+                    name === "media" ? "Média tier" : "Cliente",
+                  ]}
+                  contentStyle={{ fontSize: 12, borderRadius: 6 }}
+                />
+                {serieMedia && (
+                  <Line
+                    type="monotone"
+                    dataKey="media"
+                    stroke="#3B3B3B"
+                    strokeWidth={1.5}
+                    strokeDasharray="4 4"
+                    dot={false}
+                    isAnimationActive={false}
+                  />
+                )}
+                <Line
+                  type="monotone"
+                  dataKey="valor"
+                  stroke="#F5C518"
+                  strokeWidth={2}
+                  dot={{ r: 3, fill: "#F5C518", strokeWidth: 0 }}
+                  activeDot={{ r: 5 }}
+                  isAnimationActive={false}
+                />
+              </LineChart>
+            </ResponsiveContainer>
           </div>
           <div className="grid grid-cols-5 gap-2 mt-3 text-xs">
-            <div><span className="text-gray-faint">Pico:</span> <span className="text-ink tabular-nums">{fmt(pico, metricaPrim)}</span></div>
-            <div><span className="text-gray-faint">Média:</span> <span className="text-ink tabular-nums">{fmt(media, metricaPrim)}</span></div>
-            <div><span className="text-gray-faint">Mín:</span> <span className="text-ink tabular-nums">{fmt(min, metricaPrim)}</span></div>
-            <div>
-              <span className="text-gray-faint">YoY:</span>{" "}
-              <span className={`tabular-nums ${yoy == null ? "text-gray-faint" : yoy > 5 ? "text-emerald-700" : yoy < -5 ? "text-red-700" : "text-amber-700"}`}>
-                {yoy == null ? "—" : `${yoy > 0 ? "+" : ""}${yoy.toFixed(0)}%`}
-              </span>
-            </div>
-            <div><span className="text-gray-faint">Proj. 2026:</span> <span className="text-ink tabular-nums">{fmt(proj2026, metricaPrim)}</span></div>
+            <Stat
+              label="Pico"
+              value={picoEntry ? fmt(picoEntry.valor, metricaPrim) : "—"}
+              caption={picoEntry?.label ?? ""}
+            />
+            <Stat
+              label="Média"
+              value={fmt(media, metricaPrim)}
+              caption={periodoLabel}
+            />
+            <Stat
+              label="Mín"
+              value={minEntry ? fmt(minEntry.valor, metricaPrim) : "—"}
+              caption={minEntry?.label ?? ""}
+            />
+            <Stat
+              label="YoY"
+              value={yoy == null ? "—" : `${yoy > 0 ? "+" : ""}${yoy.toFixed(0)}%`}
+              valueClass={
+                yoy == null
+                  ? "text-gray-faint"
+                  : yoy > 5
+                    ? "text-emerald-700"
+                    : yoy < -5
+                      ? "text-red-700"
+                      : "text-amber-700"
+              }
+            />
+            <Stat label="Proj 2026" value={fmt(proj2026, metricaPrim)} />
           </div>
-          {void ytd2025}
         </>
       )}
+    </div>
+  );
+}
+
+function Stat({
+  label,
+  value,
+  caption,
+  valueClass = "text-ink",
+}: {
+  label: string;
+  value: string;
+  caption?: string;
+  valueClass?: string;
+}) {
+  return (
+    <div className="flex flex-col gap-0.5 min-w-0">
+      <span className="text-[10px] uppercase tracking-wider text-gray-faint">{label}</span>
+      <span className={`text-sm font-medium tabular-nums ${valueClass}`}>{value}</span>
+      {caption ? (
+        <span className="text-[10px] text-ink-soft truncate">{caption}</span>
+      ) : null}
     </div>
   );
 }

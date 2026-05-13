@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useRef, useState } from "react";
 import { ChevronsUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { PivotRow } from "./PivotRow";
 import { buildRows, type MixSort, type LinhaPivot, type MetricaValores } from "../../../lib/vendasMixPivot";
@@ -91,6 +91,8 @@ function buildMediaTierLinha(
     diasSemCompra: null,
     tend2026: null,
     vs2025: null,
+    fat2025Bruto: { rs: 0, qtd: 0 },
+    fat2026Bruto: { rs: 0, qtd: 0 },
     ticketMedio12m: null,
   };
 }
@@ -108,6 +110,7 @@ export function PivotTable({
   visibleMeta,
   mediasTier,
   tier,
+  displayMap,
 }: {
   vendas: import("../../../types").VendaLong[];
   filtros: MixFiltros;
@@ -121,10 +124,11 @@ export function PivotTable({
   visibleMeta: MixColumnId[];
   mediasTier: MediaTierGrupoPai[];
   tier: string | null;
+  displayMap?: Map<string, string>;
 }) {
   const { rows, colunas, total } = useMemo(
-    () => buildRows(vendas, filtros, expandidos, sort),
-    [vendas, filtros, expandidos, sort],
+    () => buildRows(vendas, filtros, expandidos, sort, displayMap),
+    [vendas, filtros, expandidos, sort, displayMap],
   );
   const metricas = filtros.metricas.length > 0 ? filtros.metricas : (["rs"] as MixMetrica[]);
 
@@ -137,6 +141,9 @@ export function PivotTable({
     papeis: "Papéis", filtros: "Filtros", piteiras: "Piteiras", outros: "Outros",
   };
   const tierKey = tier ?? "__geral__";
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [scrolled, setScrolled] = useState(false);
+
   const rowsAumentadas: Array<LinhaPivot & { _variant?: "media_tier" }> = [];
   for (let i = 0; i < rows.length; i++) {
     const r = rows[i];
@@ -187,11 +194,22 @@ export function PivotTable({
   }
 
   return (
-    <div className="overflow-x-auto">
+    <div
+      className="overflow-x-auto"
+      ref={scrollRef}
+      onScroll={(e) => {
+        const x = (e.target as HTMLDivElement).scrollLeft;
+        if (x > 0 !== scrolled) setScrolled(x > 0);
+      }}
+    >
       <table className="min-w-full text-sm border-collapse">
         <thead>
           <tr className="text-[10px] uppercase tracking-wider text-gray-faint border-b border-gray-line">
-            <th className="px-2 py-2 text-left sticky left-0 bg-white">
+            <th
+              className={`px-2 py-2 text-left sticky left-0 top-0 z-20 bg-paper ${
+                scrolled ? "shadow-[2px_0_4px_rgba(0,0,0,0.06)]" : ""
+              }`}
+            >
               <button
                 type="button"
                 onClick={() => onSort("__produto__")}
@@ -249,6 +267,7 @@ export function PivotTable({
                 onSelect={() => variant === "normal" && onSelect(selecionado === linha.key ? null : linha.key)}
                 clienteId={clienteId}
                 variant={variant}
+                showStickyShadow={scrolled}
               />
             );
           })}
@@ -262,6 +281,7 @@ export function PivotTable({
             selecionado={false}
             clienteId={clienteId}
             variant="total"
+            showStickyShadow={scrolled}
           />
         </tbody>
       </table>

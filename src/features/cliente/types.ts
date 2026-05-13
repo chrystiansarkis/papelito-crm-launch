@@ -238,3 +238,10 @@ export type MediaTierGrupoPai = {
   qtd_media: number;
   clientes_no_tier: number;
 };
+
+// Mapping nome cru → nome amigável (crm.grupo_display_nome). Sprint 2.6.
+export type GrupoDisplayNome = {
+  nome_original: string;
+  nome_amigavel: string;
+  nivel: "pai" | "filho" | null;
+};

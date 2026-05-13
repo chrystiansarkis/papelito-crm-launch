@@ -40,6 +40,10 @@ export type LinhaPivot = {
   diasSemCompra: number | null;
   tend2026: MetricaValores | null;
   vs2025: { rs: number | null; qtd: number | null } | null;
+  // Brutos pra Bloco 8 alertaVs2025 — necessários pra distinguir
+  // "ambos zero" de "queda 100%" e "novo cliente".
+  fat2025Bruto: { rs: number; qtd: number };
+  fat2026Bruto: { rs: number; qtd: number };
   ticketMedio12m: number | null; // R$/un, só nivel SKU
 };
 
@@ -189,6 +193,27 @@ const LABEL_GRUPO_PAI: Record<GrupoPaiKey, string> = {
   papeis: "Papéis", filtros: "Filtros", piteiras: "Piteiras", outros: "Outros",
 };
 
+// Mapeia grupo_pai sintético → o(s) NIVEL_1 cru(s) que ele agrega.
+// Sprint 2.6 Bloco 3: usado pra resolver nome amigável quando a UI preferir
+// o display vindo do banco. Hoje pais de UI são fixos (4 buckets), então
+// sem mapping caímos no LABEL_GRUPO_PAI default.
+function paiDisplayLabel(
+  paiKey: GrupoPaiKey,
+  displayMap?: Map<string, string>,
+): string {
+  if (!displayMap) return LABEL_GRUPO_PAI[paiKey];
+  const candidatos: string[] =
+    paiKey === "papeis"   ? ["PAPÉIS PARA FUMO"] :
+    paiKey === "filtros"  ? ["FILTROS"] :
+    paiKey === "piteiras" ? ["PITEIRAS", "PA PITEIRAS"] :
+    [];
+  for (const c of candidatos) {
+    const hit = displayMap.get(c.toUpperCase().trim());
+    if (hit) return hit;
+  }
+  return LABEL_GRUPO_PAI[paiKey];
+}
+
 function metricaPrincipal(filtros: MixFiltros): MixMetrica {
   if (filtros.metricas && filtros.metricas.length > 0) return filtros.metricas[0];
   return "rs";
@@ -278,6 +303,7 @@ export function buildRows(
   filtros: MixFiltros,
   expandidos: Set<string>,
   sort: MixSort | null = null,
+  displayMap?: Map<string, string>,
 ): { rows: LinhaPivot[]; colunas: ColunaPivot[]; total: LinhaPivot } {
   const periodos = expandPeriodos(filtros.periodos);
   const colunas = buildColunas(periodos, filtros.granularidade);
@@ -350,6 +376,8 @@ export function buildRows(
       diasSemCompra: diasDesde(b.ultimaIdx),
       tend2026: tv.tend,
       vs2025: tv.vs,
+      fat2025Bruto: { rs: b.fat2025Rs, qtd: b.fat2025Qtd },
+      fat2026Bruto: { rs: b.ytd2026Rs, qtd: b.ytd2026Qtd },
       ticketMedio12m: isSku ? ticketMedio(b) : null,
     };
   }
@@ -362,7 +390,7 @@ export function buildRows(
         {
           key: p, nivel: 1, parentKey: null,
           scope: "grupo_pai", scopeValue: p,
-          label: LABEL_GRUPO_PAI[p],
+          label: paiDisplayLabel(p, displayMap),
         },
         false,
       ),
@@ -377,11 +405,12 @@ export function buildRows(
     const filhos: LinhaPivot[] = [];
     buckets.filho.forEach((b, key) => {
       if (!key.startsWith(`${linhaPai.key}>`)) return;
-      const label = meta.filhoLabel.get(key) ?? key;
+      const rawLabel = meta.filhoLabel.get(key) ?? key;
+      const label = displayMap?.get(rawLabel.toUpperCase().trim()) ?? rawLabel;
       filhos.push(
         lineFromBucket(b, {
           key, nivel: 2, parentKey: linhaPai.key,
-          scope: "grupo_filho", scopeValue: label, label,
+          scope: "grupo_filho", scopeValue: rawLabel, label,
         }, false),
       );
     });

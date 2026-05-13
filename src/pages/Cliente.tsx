@@ -2,60 +2,81 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { ErrorState } from "@/components/common/ErrorState";
 import {
-  ClienteHeader,
-  ClienteKpis,
+  ClienteHeaderRich,
+  ClienteKpisStrip,
+  ClienteTabs,
+  useTabAtiva,
   ContatosCard,
   FinanceiroCard,
   ObservacoesCard,
   PedidosCard,
-  useClienteContatos,
-  useClienteFicha,
-  useClienteObservacoes,
-  useClientePedidos,
+  EmConstrucaoPane,
+  VisaoGeralTab,
+  useFichaCliente,
 } from "@/features/cliente";
 
 export default function Cliente() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const ficha = useFichaCliente(id);
+  const [tab, setTab] = useTabAtiva();
 
-  const fichaQuery = useClienteFicha(id);
-  const pedidosQuery = useClientePedidos(id);
-  const contatosQuery = useClienteContatos(id);
-  const observacoesQuery = useClienteObservacoes(id);
-
-  if (fichaQuery.isPending) {
+  if (ficha.ficha.isPending) {
     return <div className="p-6 text-sm text-muted-foreground">Carregando...</div>;
   }
-  if (fichaQuery.isError) {
+  if (ficha.ficha.isError) {
     return (
       <div className="p-6">
-        <ErrorState onRetry={() => fichaQuery.refetch()} />
+        <ErrorState onRetry={() => ficha.ficha.refetch()} />
       </div>
     );
   }
-  if (!fichaQuery.data) {
+  if (!ficha.ficha.data) {
     return <div className="p-6 text-sm text-muted-foreground">Cliente não encontrado.</div>;
   }
 
-  const cliente = fichaQuery.data;
+  const cliente = ficha.ficha.data;
 
   return (
-    <div className="p-6 space-y-6">
-      <button
-        onClick={() => navigate(-1)}
-        className="text-sm text-muted-foreground hover:text-ink"
-      >
-        ← Voltar
-      </button>
+    <div className="bg-gray-soft/30 min-h-screen">
+      <div className="bg-white border-b border-gray-line sticky top-0 z-30">
+        <div className="px-6 pt-3">
+          <button
+            onClick={() => navigate(-1)}
+            className="text-sm text-muted-foreground hover:text-ink"
+          >
+            ← Voltar
+          </button>
+        </div>
+        <ClienteHeaderRich
+          cliente={cliente}
+          rankingPos={ficha.rankingPos}
+          clienteDesde={null}
+        />
+        <div className="px-6 pb-4">
+          <ClienteKpisStrip
+            ficha={cliente}
+            kpi={ficha.kpi.data ?? null}
+            meta={null}
+          />
+        </div>
+        <ClienteTabs ativa={tab} onChange={setTab} />
+      </div>
 
-      <ClienteHeader cliente={cliente} />
-      <ClienteKpis cliente={cliente} />
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <PedidosCard pedidos={pedidosQuery.data ?? []} />
-        <FinanceiroCard cliente={cliente} />
-        <ContatosCard contatos={contatosQuery.data ?? []} />
-        <ObservacoesCard observacoes={observacoesQuery.data ?? []} />
+      <div className="p-6">
+        {tab === "visao" && <VisaoGeralTab ficha={ficha} />}
+        {tab === "vendas" && <EmConstrucaoPane titulo="Vendas & mix detalhado" />}
+        {tab === "pedidos" && (
+          <PedidosCard pedidos={ficha.pedidos.data ?? []} />
+        )}
+        {tab === "financeiro" && <FinanceiroCard cliente={cliente} />}
+        {tab === "contatos" && (
+          <ContatosCard contatos={ficha.contatos.data ?? []} />
+        )}
+        {tab === "atendimentos" && <EmConstrucaoPane titulo="Atendimentos do cliente" />}
+        {tab === "anotacoes" && (
+          <ObservacoesCard observacoes={ficha.observacoes.data ?? []} />
+        )}
       </div>
     </div>
   );

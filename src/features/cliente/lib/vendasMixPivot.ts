@@ -354,6 +354,8 @@ export function buildRows(
       diasSemCompra: diasDesde(b.ultimaIdx),
       tend2026: tv.tend,
       vs2025: tv.vs,
+      fat2025Bruto: { rs: b.fat2025Rs, qtd: b.fat2025Qtd },
+      fat2026Bruto: { rs: b.ytd2026Rs, qtd: b.ytd2026Qtd },
       ticketMedio12m: isSku ? ticketMedio(b) : null,
     };
   }

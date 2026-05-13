@@ -92,6 +92,11 @@ export default function Carteira() {
   const vendedoresQuery = useCarteiraVendedores();
   const kpiClientesQuery = useCarteiraKpiClientes(filtro);
   const [idsFiltrados, setIdsFiltrados] = useState<Set<string> | null>(null);
+  const kpiByClienteId = useMemo(() => {
+    const m = new Map<string, (typeof kpiClientesQuery.data extends (infer U)[] | undefined ? U : never)>();
+    for (const k of kpiClientesQuery.data ?? []) m.set(k.cliente_id, k);
+    return m;
+  }, [kpiClientesQuery.data]);
   const filtroTabela: CarteiraFiltro = useMemo(
     () => ({
       ...filtro,
@@ -199,6 +204,7 @@ export default function Carteira() {
               selected={selected}
               onSelectAll={selectAll}
               onSelectRow={selectRow}
+              kpiByClienteId={kpiByClienteId}
             />
             <div className="mt-3 flex items-center justify-between gap-3 flex-wrap">
               <div className="text-[11px] text-gray-text">

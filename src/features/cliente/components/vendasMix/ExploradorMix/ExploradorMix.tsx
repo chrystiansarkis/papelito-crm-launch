@@ -4,6 +4,7 @@ import { FiltrosTopo } from "./FiltrosTopo";
 import { PivotTable } from "./PivotTable";
 import { GraficoContextual } from "./GraficoContextual";
 import { ColumnSettings, useColumnSettings } from "@/features/shared/columnSettings";
+import { useGrupoDisplayNomes } from "../../../hooks/useGrupoDisplayNomes";
 import { defaultPeriodos, expandPeriodos, type MixSort } from "../../../lib/vendasMixPivot";
 import {
   MIX_COLUMN_IDS,
@@ -47,6 +48,7 @@ export function ExploradorMix({
     [],
   );
   const colSettings = useColumnSettings<MixColumnId>(colCfg);
+  const { displayMap } = useGrupoDisplayNomes();
 
   const toggle = (k: string) => {
     setExpandidos((prev) => {
@@ -94,6 +96,7 @@ export function ExploradorMix({
             visibleMeta={colSettings.visibleColumns}
             mediasTier={mediasTier}
             tier={tier}
+            displayMap={displayMap}
           />
         )}
         <GraficoContextual

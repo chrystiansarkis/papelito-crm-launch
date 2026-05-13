@@ -230,13 +230,16 @@ export function PivotTable({
               </SortableHeader>
             ))}
             {visibleMeta.map((id) => {
-              const align = id === "obs" || id === "vs" || id === "sem_compra" ? "center" : "right";
+              const align = id === "obs" || id === "vs" || id === "sem_compra" || id === "cresc12m"
+                ? "center" : "right";
               const sortBy =
                 id === "total" ? "__total__"
                 : id === "tend" ? "__tend__"
                 : id === "vs" ? "__vs__"
                 : id === "ticket" ? "__ticket__"
                 : id === "sem_compra" ? "__sem_compra__"
+                : id === "venda12m" ? "__venda12m__"
+                : id === "cresc12m" ? "__cresc12m__"
                 : null;
               if (sortBy) {
                 return (

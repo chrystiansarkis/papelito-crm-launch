@@ -310,6 +310,11 @@ function applySort(rows: LinhaPivot[], sort: MixSort | null, metricaPrim: MixMet
     }
     if (sort.by === "__ticket__") return r.ticketMedio12m ?? -Infinity;
     if (sort.by === "__sem_compra__") return r.diasSemCompra ?? Infinity;
+    if (sort.by === "__venda12m__") return r.venda12m[metricaPrim === "qtd" ? "qtd" : "rs"] ?? 0;
+    if (sort.by === "__cresc12m__") {
+      const v = r.cresc12m[metricaPrim === "qtd" ? "qtd" : "rs"];
+      return v ?? -Infinity;
+    }
     const cell = r.cellsByMetric[sort.by];
     return cell?.[metricaPrim] ?? 0;
   };

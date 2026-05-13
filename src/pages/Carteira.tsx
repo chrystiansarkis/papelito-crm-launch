@@ -21,6 +21,7 @@ import {
   useCarteiraVendedores,
   type CarteiraCliente,
   type CarteiraFiltro,
+  type ClienteKpi,
   type PreFilter,
   type ViewMode,
 } from "@/features/carteira";

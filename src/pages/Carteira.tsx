@@ -9,6 +9,7 @@ import {
   CARTEIRA_PAGE_SIZE,
   CarteiraKpisHeader,
   ClientList,
+  ColumnSettings,
   GlobalBar,
   KanbanView,
   MapView,
@@ -19,6 +20,7 @@ import {
   useCarteiraKpis,
   useCarteiraKpiClientes,
   useCarteiraVendedores,
+  useColumnSettings,
   type CarteiraCliente,
   type CarteiraFiltro,
   type ClienteKpi,
@@ -54,6 +56,7 @@ export default function Carteira() {
   const [view, setView] = useState<ViewMode>("table");
   const [preFilter, setPreFilter] = useState<PreFilter>("todos");
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const colSettings = useColumnSettings();
 
   // Compõe o filtro da API a partir dos filtros globais + state local de page.
   const filtro: CarteiraFiltro = useMemo(
@@ -176,6 +179,7 @@ export default function Carteira() {
               Novo cliente
             </Link>
             <ViewToggle active={view} onChange={onViewChange} />
+            {view === "table" && <ColumnSettings settings={colSettings} />}
           </div>
         </div>
 
@@ -206,6 +210,7 @@ export default function Carteira() {
               onSelectAll={selectAll}
               onSelectRow={selectRow}
               kpiByClienteId={kpiByClienteId}
+              visibleColumns={colSettings.visibleColumns}
             />
             <div className="mt-3 flex items-center justify-between gap-3 flex-wrap">
               <div className="text-[11px] text-gray-text">

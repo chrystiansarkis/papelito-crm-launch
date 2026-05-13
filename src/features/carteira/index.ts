@@ -31,5 +31,5 @@ export {
   type Endereco,
   type NovoClienteForm,
 } from "./schemas.cadastro";
-export type { CarteiraCliente, CarteiraFiltro, CarteiraKpis as CarteiraKpisData } from "./types";
+export type { CarteiraCliente, CarteiraFiltro, CarteiraKpis as CarteiraKpisData, ClienteKpi } from "./types";
 export { CARTEIRA_PAGE_SIZE } from "./types";

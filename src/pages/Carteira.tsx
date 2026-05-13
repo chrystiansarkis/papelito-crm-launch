@@ -94,7 +94,7 @@ export default function Carteira() {
   const kpiClientesQuery = useCarteiraKpiClientes(filtro);
   const [idsFiltrados, setIdsFiltrados] = useState<Set<string> | null>(null);
   const kpiByClienteId = useMemo(() => {
-    const m = new Map<string, (typeof kpiClientesQuery.data extends (infer U)[] | undefined ? U : never)>();
+    const m = new Map<string, ClienteKpi>();
     for (const k of kpiClientesQuery.data ?? []) m.set(k.cliente_id, k);
     return m;
   }, [kpiClientesQuery.data]);

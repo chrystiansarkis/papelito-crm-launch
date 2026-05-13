@@ -1,138 +1,122 @@
+## Decisão de arquitetura: opção (d) — refinamento de (c)
 
-## Stack confirmada
+Antes de escolher (a), conferi as views: `vw_carteira_clientes_kpi` **não tem** vários campos que a tabela já renderiza hoje a partir de `vw_carteira` (`ticket_medio_12m`, `limite_pct_utilizado`, `total_vencido`, `rfv_score`, `qtd_pedidos_12m`, `cidade`, `score_pagamento`, flags de campanha, `tem_acordo_ativo`). Migrar 100% pra `vw_carteira_clientes_kpi` (opção a) exigiria expandir a view no banco — passa pelo Security Gatekeeper, é o maior refactor e o user pediu menor mudança possível.
 
-**dnd-kit** (`@dnd-kit/core` + `@dnd-kit/sortable` + `@dnd-kit/utilities`). Já é o padrão de mercado pra esse caso, leve (~10kb gz), acessível por teclado out-of-the-box, e a API `SortableContext` + `useSortable` resolve drag vertical com snap natural — exatamente o cenário do popover. Não precisa nada além disso.
+Opção (b) sofre exatamente do bug de filtro KPI que já existe (sort/filtro client-side sobre página atual ≠ resultado correto sobre o universo).
 
-Instalar:
-```
-bun add @dnd-kit/core @dnd-kit/sortable @dnd-kit/utilities
-```
+Proposta — **opção d (variação de c)**: como a Carteira já lida com ~1700 clientes e o `useCarteiraKpiClientes` já carrega tudo, **carregar também `vw_carteira` inteira (sem paginação) numa única query** e fazer sort + paginação 100% client-side. O backend deixa de paginar; o front vira fonte única de verdade.
 
-## Modelagem do state
+### Por que isso resolve também o bug do filtro KPI
 
-Catálogo central de colunas vive em `src/features/carteira/lib/columns.ts`:
+Hoje `idsFiltrados` (do header KPI) entra como `clienteIds` em `listCarteiraClientes`, mas a paginação server-side por `faturamento_12m desc` ignora qualquer ordenação derivada do Map KPI. Com tudo client-side, `idsFiltrados` vira só um filtro `Set.has(id)` aplicado antes do sort/slice — consistente com qualquer coluna ordenada, inclusive as do Map.
 
-```ts
-export type CarteiraColumnId =
-  | "cliente" | "saude" | "tipo" | "rfv" | "yoy"
-  | "pedidos_12m" | "fat_12m" | "ticket_medio" | "sem_compra"
-  | "ultima_venda" | "ultimo_atendimento" | "vendedor"
-  | "camp" | "vencido" | "limite_pct" | "fin" | "proxima_acao";
+### Custo / risco
 
-export const CARTEIRA_COLUMNS: { id: CarteiraColumnId; label: string; fixed?: boolean }[] = [
-  { id: "cliente", label: "Cliente", fixed: true },
-  { id: "saude", label: "Saúde" },
-  { id: "tipo", label: "Tipo" },
-  { id: "rfv", label: "RFV" },
-  { id: "yoy", label: "YoY" },
-  { id: "pedidos_12m", label: "Pedidos 12m" },
-  { id: "fat_12m", label: "Fat. 12m" },
-  { id: "ticket_medio", label: "Ticket méd." },
-  { id: "sem_compra", label: "Sem compra" },
-  { id: "ultima_venda", label: "Última venda" },
-  { id: "ultimo_atendimento", label: "Último atendimento" },
-  { id: "vendedor", label: "Vendedor" },
-  { id: "camp", label: "Camp." },
-  { id: "vencido", label: "Vencido" },
-  { id: "limite_pct", label: "Limite %" },
-  { id: "fin", label: "Fin." },
-  { id: "proxima_acao", label: "Próxima ação IA" },
-];
+- 1 query única `vw_carteira` (sem `.range`) — ~1700 rows × ~50 colunas. Já temos precedente com `vw_carteira_clientes_kpi` (mesma ordem de grandeza). Cache 5 min via react-query.
+- KPIs de header (`useCarteiraKpis`) continuam server-side e independentes — não mexer.
 
-export const DEFAULT_VISIBILITY: Record<CarteiraColumnId, boolean> =
-  Object.fromEntries(CARTEIRA_COLUMNS.map(c => [c.id, true])) as any;
-export const DEFAULT_ORDER: CarteiraColumnId[] =
-  CARTEIRA_COLUMNS.filter(c => !c.fixed).map(c => c.id);
-```
+---
 
-`order` guarda apenas as colunas manipuláveis (cliente fica fora — sempre renderizada primeiro). Isso simplifica o dnd e remove qualquer chance de mover/ocultar a coluna fixa por bug.
+## Modelagem de estado
 
-## Hook `useColumnSettings`
+### Catálogo (`src/features/carteira/lib/columns.ts`)
 
-`src/features/carteira/hooks/useColumnSettings.ts`:
-
-- Storage key: `papelito:carteira:column-settings:chrystian`
-- Hidrata do localStorage no mount (lazy initializer no `useState`)
-- Sanitiza o payload contra `CARTEIRA_COLUMNS`: ignora ids desconhecidos e adiciona ids novos no fim do `order` (forward-compat se a gente adicionar coluna nova depois)
-- Persiste em `useEffect` com `setTimeout` debounce ~200ms, limpa no cleanup
-- API exposta:
-  ```ts
-  {
-    visibility: Record<CarteiraColumnId, boolean>,
-    order: CarteiraColumnId[],         // sem "cliente"
-    visibleColumns: CarteiraColumnId[], // ["cliente", ...order.filter(visible)]
-    toggle(id): void,
-    reorder(from: CarteiraColumnId, to: CarteiraColumnId): void,
-    reset(): void,
-  }
-  ```
-
-## Componente `ColumnSettings`
-
-`src/features/carteira/components/ColumnSettings.tsx`:
-
-- shadcn `Popover` (já existe em `src/components/ui/popover.tsx`), `PopoverContent` align="end" sideOffset=8 width 280px
-- Trigger: botão estilo igual aos outros do header (`inline-flex items-center gap-1.5 px-3 py-2 text-[12.5px] ...`) com `Columns3` da lucide
-- Conteúdo:
-  - Header "Colunas da tabela" (`text-xs font-semibold text-gray-text uppercase tracking-wide`)
-  - Linha fixa CLIENTE no topo: slot vazio do tamanho do grip + Checkbox (shadcn) `disabled checked` envolto em `Tooltip` "Coluna principal"
-  - `<DndContext>` + `<SortableContext items={order} strategy={verticalListSortingStrategy}>` com cada item via `SortableItem` interno (usa `useSortable`)
-  - `SortableItem`: `flex items-center gap-2 py-2 px-2 rounded hover:bg-gray-soft`, `GripVertical` (h-3.5 w-3.5 text-gray-faint, group-hover:text-gray-text, cursor-grab) + Checkbox + label (text-sm text-ink). Aplica `transform`/`transition` do dnd-kit. Durante drag (`isDragging`), `bg-white shadow-md`.
-  - Footer: `border-t pt-2 mt-2 flex items-center justify-between`. Esquerda contador `{visibleCount} de {totalCount} visíveis`. Direita botão "Resetar pro padrão" (`text-xs text-gray-text underline-offset-2 hover:underline hover:text-ink`)
-- `onDragEnd` chama `reorder(active.id, over.id)`
-
-## Integração com a tabela
-
-`ClientList.tsx` recebe nova prop `visibleColumns: CarteiraColumnId[]` e renderiza `<th>`/`<td>` em loop sobre essa lista, num único registry:
+Estender `CarteiraColumnDef`:
 
 ```ts
-const COLUMN_RENDERERS: Record<CarteiraColumnId, {
-  header: () => JSX.Element;
-  cell: (c, ctx) => JSX.Element;
-}> = { ... };
+type SortType = "string" | "number" | "date" | "enum";
+type CarteiraColumnDef = {
+  id: CarteiraColumnId;
+  label: string;
+  fixed?: boolean;
+  defaultVisible?: boolean;
+  sortable?: boolean;          // default true; rfv/camp/proxima_acao = false
+  sortType?: SortType;
+  enumOrder?: string[];        // só pra sortType: "enum"
+};
 ```
 
-Cada entrada do registry contém o `<th>` e o `<td>` atuais (o conteúdo de cada célula que já existe hoje, só extraído pra função). Isso elimina a duplicação atual de 17 `<th>`/`<td>` hardcoded e desbloqueia o reorder/hide sem `if`s espalhados. `ctx` carrega o necessário (`kpiByClienteId`, helpers `tipoLabel`, `yoyVariation`, `formatMoney`, etc).
+Mapeamento (resumo): cliente=string, tipo=string, vendedor=string, saude/tier/fin=enum com ordem custom, todas as `fat_*`, yoy, pedidos_12m, ticket, vencido, limite_pct, sem_compra, tendencia/desvio = number, ultima_venda/ultimo_atendimento = date.
 
-A coluna do checkbox de seleção (primeira) e a coluna `cliente` continuam sempre presentes — checkbox antes, cliente depois — e o loop começa depois delas. O `colSpan` do `LoadingRow`/`EmptyRow` passa a ser `visibleColumns.length + 1` (checkbox).
+### Hook `useTableSort` (novo, `src/features/carteira/hooks/useTableSort.ts`)
 
-## Render em `Carteira.tsx`
-
-```tsx
-const colSettings = useColumnSettings();
-...
-<div className="flex items-center gap-2">
-  <Link to="/carteira/novo">...</Link>
-  <ViewToggle ... />
-  <ColumnSettings settings={colSettings} />
-</div>
-...
-<ClientList ... visibleColumns={colSettings.visibleColumns} />
+```ts
+type SortState = { sortBy: CarteiraColumnId | null; direction: "asc" | "desc" | null };
+// ciclo: null → asc → desc → null
+// useState puro, sem persistência
 ```
 
-## Arquivos
+### Comparator puro (`src/features/carteira/lib/sortRows.ts`)
 
-**Novos:**
-- `src/features/carteira/lib/columns.ts` — catálogo + defaults + tipo `CarteiraColumnId`
-- `src/features/carteira/hooks/useColumnSettings.ts`
-- `src/features/carteira/components/ColumnSettings.tsx`
+Função `sortRows(rows, sort, kpiByClienteId)` que:
+- extrai valor por `CarteiraColumnId` (acesso a `CarteiraCliente` ou ao Map KPI conforme a coluna);
+- aplica comparator por `sortType`;
+- **NULL/vazio sempre por último** em ASC e DESC (especificado pelo user).
 
-**Editados:**
-- `src/features/carteira/components/ClientList.tsx` — refator pra registry de colunas + nova prop `visibleColumns`
-- `src/pages/Carteira.tsx` — instancia hook, renderiza `<ColumnSettings>` no header, passa `visibleColumns` pro `ClientList`
-- `src/features/carteira/index.ts` — re-export `ColumnSettings`, `useColumnSettings`, tipo `CarteiraColumnId`
-- `package.json` — deps dnd-kit (via `bun add`)
+Função pura, fácil de testar.
+
+---
+
+## Sticky horizontal
+
+Em `ClientList.tsx`:
+- `<th>` checkbox: `sticky left-0 z-20 bg-gray-soft`
+- `<th>` cliente: `sticky left-8 z-20 bg-gray-soft border-r border-gray-line`
+- `<td>` checkbox: `sticky left-0 bg-paper` (com variante `bg-brand-soft/40` quando selecionado, `group-hover:bg-gray-soft`)
+- `<td>` cliente: `sticky left-8 bg-paper border-r border-gray-line` (mesmas variantes)
+
+Cuidado: hoje as `<tr>` mudam bg em hover/selected. Como o `<td>` sticky precisa ter bg opaco próprio, vou aplicar as mesmas classes condicionais nesses dois `<td>` específicos (não dá pra herdar transparente).
+
+**Sombra de scroll**: `useRef` no container `overflow-x-auto`, listener de `scroll` salvando `scrolled = scrollLeft > 0` no state, classe condicional `after:absolute after:top-0 after:right-0 after:bottom-0 after:w-1 after:bg-gradient-...` no `<td>` cliente (ou box-shadow). Aplicar só no segundo sticky (cliente), não no checkbox.
+
+**Header sticky vertical**: o `<thead>` hoje não é sticky vertical (verifiquei — só `bg-gray-soft`), então não há conflito. Z-index dos sticky horizontais: 20 no header, 10 nos tds.
+
+---
+
+## Mudanças por arquivo
+
+**Novos**
+- `src/features/carteira/hooks/useTableSort.ts` — state + ciclo asc/desc/null
+- `src/features/carteira/lib/sortRows.ts` — comparator puro + tratamento de NULL
+
+**Editados**
+- `src/features/carteira/lib/columns.ts` — metadados de sort em cada coluna
+- `src/features/carteira/api/listClientes.ts` — remover `.range()`, sempre retornar full set; ajustar tipo `ListClientesResult` (manter `total` = `rows.length` pra não quebrar consumidores)
+- `src/features/carteira/hooks/useCarteira.ts` — `useCarteiraClientes` sem `page` no queryKey (page sai do filtro), `staleTime: 5min`
+- `src/features/carteira/types.ts` — remover `page` de `CarteiraFiltro` (ou deixar e ignorar no API; prefiro remover pra evitar dead code)
+- `src/pages/Carteira.tsx` — remover `setPage` do filtro da query, mover paginação pra slice client-side, instanciar `useTableSort`, aplicar `sortRows(filteredRows, sort, kpi)` antes do slice da página, passar `sort` + `onSortChange` pro `ClientList`
+- `src/features/carteira/components/ClientList.tsx`:
+  - assinatura `header` dos renderers passa a receber `{ sort, onSort }` (ou wrapper `<SortableTh>` que envolve o conteúdo);
+  - chevrons com `lucide-react` (ChevronUp/ChevronDown), estado inativo/asc/desc
+  - sticky nos dois primeiros th/td, sombra condicional via state local
+  - `font-semibold` na coluna ativa
+- `src/features/carteira/index.ts` — exportar `useTableSort`
+
+---
 
 ## Gotchas
 
-1. **Refator do `ClientList` é a parte arriscada.** São 17 colunas com markup denso (Pills, ProgressBar, ícones, formatadores). Vou extrair cada `<th>`/`<td>` 1-pra-1 pro registry sem mudar nenhum classe ou lógica de cor — assim o diff visual é zero quando todas estão visíveis na ordem default. Vale rodar a página com defaults e comparar antes/depois.
-2. **`colSpan` do `LoadingRow`/`EmptyRow`** precisa virar dinâmico (`visibleColumns.length + 1`), senão quebra o "Nenhum cliente encontrado" quando o usuário oculta colunas.
-3. **Persistência durante drag**: cada `onDragEnd` dispara um `setState` → `useEffect` → escrita. Debounce de 200ms cobre o caso de o usuário arrastar várias colunas em sequência. Não é crítico, mas evita writes desnecessárias.
-4. **Sanitização do payload do localStorage** é importante: se a gente renomear/remover uma coluna no futuro, o JSON antigo do usuário não pode quebrar a página. O hook filtra ids desconhecidos e mescla novos no fim do array.
-5. **dnd-kit + Radix Popover**: o `PointerSensor` do dnd-kit funciona dentro do PopoverContent sem ajuste. Só preciso configurar `activationConstraint: { distance: 4 }` pra não disparar drag em click acidental no checkbox.
-6. **`PreFilterChips` mostra contagem por categoria** baseado nas rows atuais — não é afetado por colunas, só por linhas. Ok.
-7. **Ordenação da tabela por coluna** não existe hoje (a tabela vem ordenada por faturamento desc do backend). O reorder é puramente visual; não introduz click-to-sort. Fica fora de escopo, alinhado com o pedido.
+1. **Remover paginação server-side quebra `count`**. Hoje `Pagination` lê `total` do backend. Solução: `total = rows.length` após filtros mas antes do slice; `Pagination` continua funcionando idêntico, apenas calcula offsets client-side.
 
-## Validação
+2. **`PreFilterChips` lê `rows` (página atual) hoje** pra contar — com client-side completo, vai contar sobre o universo filtrado. Comportamento melhor; sem regressão.
 
-Após implementar: abrir `/carteira`, conferir que (a) a tabela renderiza idêntica ao estado atual com defaults, (b) ocultar 2-3 colunas reflete na tabela, (c) arrastar reordena, (d) reload mantém estado, (e) "Resetar pro padrão" volta tudo, (f) Cliente nunca some nem se move.
+3. **`BulkActionBar` selectAll** hoje seleciona a página visível. Mantém igual (slice da página atual depois do sort) — não muda semântica.
+
+4. **`<td>` sticky + hover no `<tr>`**: bg do tr não atinge tds com bg próprio. Vou aplicar classes condicionais nos próprios tds sticky com a mesma lógica (`isSel ? "bg-brand-soft/40" : "bg-paper hover:bg-gray-soft"`) — usar `group` no tr e `group-hover:` nos tds sticky.
+
+5. **Sort de enum**: comparator usa índice em `enumOrder`. Valor não listado vira `Infinity` (cai pro fim, regra de NULL).
+
+6. **Sort estável**: usar `Array.prototype.sort` é estável em V8/JSC modernos; tiebreak por `id` pra garantir.
+
+7. **KPI filter bug**: confirmar em revisão que `filteredRows` agora é `(allRows filtrados por idsFiltrados + preFilter) → sort → slice page`. Resolve sem patch dedicado.
+
+8. **Sem mudança de schema/RLS** — não dispara Security Gatekeeper. A query nova é leitura da mesma view com policies já existentes.
+
+---
+
+## Fora de escopo (confirmar)
+
+- Multi-column sort (shift+click)
+- Persistir sort em URL ou localStorage
+- Virtualização de linhas (1700 rows render sem virtualization é aceitável; revisitar se travar)
+- Sticky vertical do header (não pedido)

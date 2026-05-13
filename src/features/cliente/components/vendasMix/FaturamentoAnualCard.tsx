@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { CardWrap } from "../visaoGeral/CardWrap";
 import { formatMoneyShort } from "@/lib/format";
-import type { ClienteFichaKpi, VendaMensal } from "../../types";
+import type { ClienteFichaKpi, GrupoPaiKey, VendaLong } from "../../types";
 import {
   BarChart,
   Bar,
@@ -18,6 +18,12 @@ const ANOS = [2020, 2021, 2022, 2023, 2024, 2025, 2026] as const;
 const ANO_ATUAL = new Date().getFullYear();
 const MES_PT_ABREV = ["jan","fev","mar","abr","mai","jun","jul","ago","set","out","nov","dez"];
 
+const GRUPO_LABEL: Record<string, string> = {
+  papeis: "Papéis", filtros: "Filtros", piteiras: "Piteiras", outros: "Outros",
+};
+
+type BreakdownItem = { grupo: GrupoPaiKey; valor: number; share: number };
+
 // =====================================================================
 // Sprint 2.6c — Stats por ano (alimentam tooltip enriquecido).
 // =====================================================================
@@ -27,27 +33,42 @@ type AnoStats = {
   picoMes: { mes: number; valor: number } | null;
   valeMes: { mes: number; valor: number } | null;
   q4Share: number | null;
-  // só ano corrente:
   ytd: number | null;
   ytdMesmoPeriodoAnterior: number | null;
   ritmo: number | null;
+  breakdown: BreakdownItem[];
 };
 
-function buildStatsByAno(vendas: VendaMensal[], hoje = new Date()): Map<number, AnoStats> {
+function buildStatsByAno(
+  vendas: VendaLong[],
+  kpi: ClienteFichaKpi,
+  hoje = new Date(),
+): Map<number, AnoStats> {
   const yearNow = hoje.getFullYear();
   const monthNow = hoje.getMonth() + 1; // 1..12
-  // ano -> mes -> valor
+  // ano -> mes -> valor (do vendasLong)
   const byYearMonth = new Map<number, Map<number, number>>();
+  // ano -> grupo_pai -> valor
+  const byYearGrupo = new Map<number, Map<GrupoPaiKey, number>>();
   for (const v of vendas) {
-    const m = /^(\d{4})-(\d{2})/.exec(v.mes);
-    if (!m) continue;
-    const ano = Number(m[1]);
-    const mes = Number(m[2]);
+    const ano = v.ano;
+    const mes = v.mes;
+    if (!ano || !mes) continue;
     if (!byYearMonth.has(ano)) byYearMonth.set(ano, new Map());
     const inner = byYearMonth.get(ano)!;
     inner.set(mes, (inner.get(mes) ?? 0) + v.valor);
+    if (!byYearGrupo.has(ano)) byYearGrupo.set(ano, new Map());
+    const g = byYearGrupo.get(ano)!;
+    g.set(v.grupo_pai, (g.get(v.grupo_pai) ?? 0) + v.valor);
   }
-  function totalAno(ano: number, ateMes = 12): number {
+
+  // realizado vem do kpi (sempre disponível, mesmo sem vendasLong).
+  const realizadoDoKpi: Record<number, number> = {
+    2020: kpi.fat_2020 ?? 0, 2021: kpi.fat_2021 ?? 0, 2022: kpi.fat_2022 ?? 0,
+    2023: kpi.fat_2023 ?? 0, 2024: kpi.fat_2024 ?? 0, 2025: kpi.fat_2025 ?? 0,
+    2026: kpi.fat_2026 ?? 0,
+  };
+  function totalAnoVL(ano: number, ateMes = 12): number {
     const inner = byYearMonth.get(ano);
     if (!inner) return 0;
     let t = 0;
@@ -57,8 +78,8 @@ function buildStatsByAno(vendas: VendaMensal[], hoje = new Date()): Map<number, 
   const out = new Map<number, AnoStats>();
   for (const ano of ANOS) {
     const inner = byYearMonth.get(ano);
-    const realizado = totalAno(ano);
-    const ant = totalAno(ano - 1);
+    const realizado = realizadoDoKpi[ano] ?? 0;
+    const ant = realizadoDoKpi[ano - 1] ?? 0;
     const vsAnterior = ant > 0 ? (realizado / ant - 1) * 100 : null;
     let pico: { mes: number; valor: number } | null = null;
     let vale: { mes: number; valor: number } | null = null;
@@ -69,18 +90,32 @@ function buildStatsByAno(vendas: VendaMensal[], hoje = new Date()): Map<number, 
       });
     }
     const q4 = (inner?.get(10) ?? 0) + (inner?.get(11) ?? 0) + (inner?.get(12) ?? 0);
-    const q4Share = realizado > 0 ? (q4 / realizado) * 100 : null;
+    const totalVL = totalAnoVL(ano);
+    const q4Share = totalVL > 0 ? (q4 / totalVL) * 100 : null;
     let ytd: number | null = null;
     let ytdAnt: number | null = null;
     let ritmo: number | null = null;
     if (ano === yearNow) {
-      ytd = totalAno(ano, monthNow);
-      ytdAnt = totalAno(ano - 1, monthNow);
+      ytd = totalAnoVL(ano, monthNow) || realizado;
+      ytdAnt = totalAnoVL(ano - 1, monthNow);
       ritmo = ytdAnt && ytdAnt > 0 ? (ytd / ytdAnt - 1) * 100 : null;
+    }
+    const grupos = byYearGrupo.get(ano);
+    let breakdown: BreakdownItem[] = [];
+    if (grupos) {
+      const totalGrupos = Array.from(grupos.values()).reduce((a, b) => a + b, 0);
+      breakdown = Array.from(grupos.entries())
+        .filter(([, v]) => v > 0)
+        .map(([grupo, valor]) => ({
+          grupo,
+          valor,
+          share: totalGrupos > 0 ? (valor / totalGrupos) * 100 : 0,
+        }))
+        .sort((a, b) => b.valor - a.valor);
     }
     out.set(ano, {
       realizado, vsAnterior, picoMes: pico, valeMes: vale, q4Share,
-      ytd, ytdMesmoPeriodoAnterior: ytdAnt, ritmo,
+      ytd, ytdMesmoPeriodoAnterior: ytdAnt, ritmo, breakdown,
     });
   }
   return out;
@@ -166,6 +201,23 @@ function CustomTooltip({
           )}
         </>
       )}
+      {s.breakdown.length > 0 && (
+        <>
+          <div className="border-b border-gray-line my-1" />
+          <div className="text-ink-soft text-[10px] uppercase tracking-wide mb-0.5">
+            Por categoria
+          </div>
+          {s.breakdown.map((b) => (
+            <div key={b.grupo} className="flex justify-between items-baseline">
+              <span className="text-ink">• {GRUPO_LABEL[b.grupo] ?? b.grupo}</span>
+              <span className="tabular-nums text-ink">
+                {formatMoneyShort(b.valor)}{" "}
+                <span className="text-ink-soft">{b.share.toFixed(0)}%</span>
+              </span>
+            </div>
+          ))}
+        </>
+      )}
     </div>
   );
 }
@@ -216,10 +268,10 @@ function AnotacaoCrescimento(props: CustomizedProps) {
 // Card principal
 // =====================================================================
 export function FaturamentoAnualCard({
-  kpi, vendasMensais, isLoading,
+  kpi, vendasLong, isLoading,
 }: {
   kpi: ClienteFichaKpi | null;
-  vendasMensais?: VendaMensal[];
+  vendasLong?: VendaLong[];
   isLoading?: boolean;
 }) {
   if (isLoading) {
@@ -259,8 +311,8 @@ export function FaturamentoAnualCard({
   });
 
   const statsByAno = useMemo(
-    () => buildStatsByAno(vendasMensais ?? [], new Date()),
-    [vendasMensais],
+    () => buildStatsByAno(vendasLong ?? [], kpi, new Date()),
+    [vendasLong, kpi],
   );
   const stats2026 = statsByAno.get(ANO_ATUAL);
 

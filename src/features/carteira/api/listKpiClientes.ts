@@ -66,6 +66,15 @@ function rowToCliente(r: Row): ClienteKpi {
     fat_ytd_outros: num(r.fat_ytd_outros),
     valor_vencido: num(r.valor_vencido),
     tem_vencido: bool(r.tem_vencido),
+    fat_2020: nullableNum(r.fat_2020),
+    fat_2021: nullableNum(r.fat_2021),
+    fat_2022: nullableNum(r.fat_2022),
+    fat_2023: nullableNum(r.fat_2023),
+    fat_2024: nullableNum(r.fat_2024),
+    fat_2025: nullableNum(r.fat_2025),
+    fat_2026: nullableNum(r.fat_2026),
+    tendencia_2026: nullableNum(r.tendencia_2026),
+    desvio_2026: nullableNum(r.desvio_2026),
   };
 }
 

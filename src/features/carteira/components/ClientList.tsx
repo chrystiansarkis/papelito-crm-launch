@@ -84,7 +84,8 @@ type CellCtx = {
 };
 
 type ColumnRenderer = {
-  header: () => JSX.Element;
+  align?: "left" | "right" | "center";
+  headerClass?: string;
   cell: (c: CarteiraCliente, ctx: CellCtx) => JSX.Element;
 };
 

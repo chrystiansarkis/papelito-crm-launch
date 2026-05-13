@@ -19,4 +19,6 @@ export const clienteKeys = {
   penetracao: () => [...clienteKeys.all, "penetracao-media"] as const,
   obsProduto: (id: string, scope: string, value: string) =>
     [...clienteKeys.all, "obs-prod", id, scope, value] as const,
+  mediaTierGrupoPai: (tier: string | null, anos: number[]) =>
+    [...clienteKeys.all, "media-tier-gp", tier ?? "geral", anos.slice().sort().join(",")] as const,
 };

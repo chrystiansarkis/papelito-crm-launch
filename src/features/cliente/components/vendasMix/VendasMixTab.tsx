@@ -21,7 +21,8 @@ export function VendasMixTab({
   const defaultFiltros = useDefaultMixFiltros();
   const [filtros, setFiltros] = useState<MixFiltros>(defaultFiltros);
   const anos = anosDosFiltros(filtros);
-  const mix = useVendasMix(clienteId, anos);
+  const tier = ficha.ficha.data?.tier ?? null;
+  const mix = useVendasMix(clienteId, anos, tier);
 
   return (
     <div className="flex flex-col gap-4">
@@ -32,6 +33,8 @@ export function VendasMixTab({
         isLoading={mix.vendasLong.isPending}
         filtros={filtros}
         onChangeFiltros={setFiltros}
+        mediasTier={mix.mediaTier.data ?? []}
+        tier={tier}
       />
       <PenetracaoCard
         vendas={mix.vendasLong.data ?? []}

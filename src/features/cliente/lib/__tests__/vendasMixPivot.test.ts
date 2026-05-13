@@ -21,7 +21,7 @@ const vendas: VendaLong[] = [
 const baseFiltros: MixFiltros = {
   periodos: ["2025"],
   granularidade: "ano",
-  metrica: "rs",
+  metricas: ["rs"],
   comparar: "none",
 };
 
@@ -64,7 +64,7 @@ describe("buildRows", () => {
     expect(rows[paiIdx + 1].nivel).toBe(2);
   });
   it("normaliza pra % quando metrica=pct", () => {
-    const { total } = buildRows(vendas, { ...baseFiltros, metrica: "pct" }, new Set());
+    const { total } = buildRows(vendas, { ...baseFiltros, metricas: ["pct"] }, new Set());
     expect(total.total).toBe(100);
   });
 });

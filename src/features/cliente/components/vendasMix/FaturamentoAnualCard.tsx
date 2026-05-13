@@ -251,10 +251,10 @@ function AnotacaoCrescimento(props: CustomizedProps) {
 // Card principal
 // =====================================================================
 export function FaturamentoAnualCard({
-  kpi, vendasMensais, isLoading,
+  kpi, vendasLong, isLoading,
 }: {
   kpi: ClienteFichaKpi | null;
-  vendasMensais?: VendaMensal[];
+  vendasLong?: VendaLong[];
   isLoading?: boolean;
 }) {
   if (isLoading) {
@@ -294,8 +294,8 @@ export function FaturamentoAnualCard({
   });
 
   const statsByAno = useMemo(
-    () => buildStatsByAno(vendasMensais ?? [], new Date()),
-    [vendasMensais],
+    () => buildStatsByAno(vendasLong ?? [], kpi, new Date()),
+    [vendasLong, kpi],
   );
   const stats2026 = statsByAno.get(ANO_ATUAL);
 

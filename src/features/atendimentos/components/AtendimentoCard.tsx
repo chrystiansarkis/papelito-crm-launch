@@ -4,18 +4,25 @@ import { Pill } from "@/components/common/Pill";
 import { TipoBadge } from "./TipoBadge";
 import { ATENDIMENTO_STATUS_LABEL, type Atendimento } from "../types";
 
-function formatDataHora(iso: string): string {
+function formatDataHora(iso: string | null): string {
+  if (!iso) return "—";
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
   return `${d.toLocaleDateString("pt-BR")} · ${d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`;
 }
 
-function relativoDoDia(iso: string): { label: string; tone: "today" | "soon" | "later" | "past" } {
+function relativoDoDia(iso: string | null): {
+  label: string;
+  tone: "today" | "soon" | "later" | "past";
+} {
+  if (!iso) return { label: "Sem data", tone: "later" };
   const d = new Date(iso);
   const now = new Date();
   const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const startOfTarget = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-  const diffDays = Math.round((startOfTarget.getTime() - startOfToday.getTime()) / 86_400_000);
+  const diffDays = Math.round(
+    (startOfTarget.getTime() - startOfToday.getTime()) / 86_400_000,
+  );
 
   if (diffDays === 0) return { label: "Hoje", tone: "today" };
   if (diffDays === 1) return { label: "Amanhã", tone: "soon" };
@@ -27,15 +34,32 @@ function relativoDoDia(iso: string): { label: string; tone: "today" | "soon" | "
   return { label: `Em ${diffDays} dias`, tone: "later" };
 }
 
+function vinculoLabel(a: Atendimento): string | null {
+  if (a.cliente_nome) return a.cliente_nome;
+  if (a.participante_nome) return a.participante_nome;
+  if (a.empresa_avulsa) {
+    return a.contato_avulso
+      ? `${a.empresa_avulsa} · ${a.contato_avulso}`
+      : a.empresa_avulsa;
+  }
+  return null;
+}
+
 export type AtendimentoCardProps = {
   atendimento: Atendimento;
   variant?: "default" | "overdue";
   onEdit?: (atendimento: Atendimento) => void;
 };
 
-export function AtendimentoCard({ atendimento: a, variant = "default", onEdit }: AtendimentoCardProps) {
-  const rel = relativoDoDia(a.data);
+export function AtendimentoCard({
+  atendimento: a,
+  variant = "default",
+  onEdit,
+}: AtendimentoCardProps) {
+  const dataRef = a.agendado_para ?? a.ocorreu_em;
+  const rel = relativoDoDia(dataRef);
   const overdue = variant === "overdue";
+  const vinculo = vinculoLabel(a);
 
   return (
     <div
@@ -60,32 +84,22 @@ export function AtendimentoCard({ atendimento: a, variant = "default", onEdit }:
           >
             {rel.label}
           </span>
-          {overdue && (
-            <Pill variant="risk">Sem observação</Pill>
-          )}
+          {overdue && <Pill variant="risk">Sem observação</Pill>}
         </div>
 
         <div className="text-[13px] font-medium text-ink leading-snug truncate">
-          {a.titulo}
+          {a.titulo || <span className="text-gray-faint">(sem título)</span>}
         </div>
 
-        {(a.cliente || a.participantes || a.empresa_avulsa) && (
-          <div className="text-[12px] text-gray-text truncate">
-            {a.cliente ??
-              a.participantes ??
-              (a.empresa_avulsa
-                ? a.contato_avulso
-                  ? `${a.empresa_avulsa} · ${a.contato_avulso}`
-                  : a.empresa_avulsa
-                : null)}
-          </div>
+        {vinculo && (
+          <div className="text-[12px] text-gray-text truncate">{vinculo}</div>
         )}
 
         <div className="flex items-center gap-3 text-[11.5px] text-gray-text flex-wrap">
           <span className="inline-flex items-center gap-1">
             <Clock className="w-3 h-3" strokeWidth={2} />
-            {formatDataHora(a.data)}
-            {a.duracao_min ? ` · ${a.duracao_min}min` : ""}
+            {formatDataHora(dataRef)}
+            {a.duracao_minutos ? ` · ${a.duracao_minutos}min` : ""}
           </span>
           {a.local && (
             <span className="inline-flex items-center gap-1 truncate max-w-[260px]">
@@ -93,10 +107,12 @@ export function AtendimentoCard({ atendimento: a, variant = "default", onEdit }:
               <span className="truncate">{a.local}</span>
             </span>
           )}
-          <span className="inline-flex items-center gap-1">
-            <User className="w-3 h-3" strokeWidth={2} />
-            {a.responsavel}
-          </span>
+          {a.vendedor_nome && (
+            <span className="inline-flex items-center gap-1">
+              <User className="w-3 h-3" strokeWidth={2} />
+              {a.vendedor_nome}
+            </span>
+          )}
           <span className="text-[11px] text-gray-faint">
             {ATENDIMENTO_STATUS_LABEL[a.status]}
           </span>

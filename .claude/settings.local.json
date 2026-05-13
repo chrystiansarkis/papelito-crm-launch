@@ -28,7 +28,10 @@
       "Bash(Select-Object FullName, Name)",
       "Bash(xargs grep -l \"fn_\\\\|\\\\.rpc\\\\\\(\")",
       "Bash(PowerShell -Command \"Get-Content 'C:\\\\Users\\\\Papelito\\\\.claude\\\\projects\\\\c--repo-papelito-crm-launch\\\\9eb9c203-4e8c-4280-8875-b43d398efbbd\\\\tool-results\\\\mcp-claude_ai_Supabase-list_tables-1778637321964.txt' | Select-String -Pattern '\\(estoque|stock|saldo|ruptura|disponivel|preco|tabela_preco|precificacao|lista|pedido|orcamento|cotacao|cliente\\)' -AllMatches | Select-Object -First 100\")",
-      "Bash(xargs grep -l '\\\\.insert\\(\\\\|\\\\.update\\(\\\\|\\\\.rpc\\(')"
+      "Bash(xargs grep -l '\\\\.insert\\(\\\\|\\\\.update\\(\\\\|\\\\.rpc\\(')",
+      "Bash(Get-ChildItem -Path \"c:\\\\repo\\\\papelito-crm-launch\" -Directory)",
+      "Bash(Select-Object -First 20)",
+      "Bash(python -c ' *)"
     ]
   }
 }

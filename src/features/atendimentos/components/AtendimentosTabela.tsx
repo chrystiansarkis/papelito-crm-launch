@@ -15,7 +15,8 @@ const STATUS_VARIANT: Record<AtendimentoStatus, PillVariant> = {
   reagendado: "soft",
 };
 
-function formatDataHora(iso: string): string {
+function formatDataHora(iso: string | null): string {
+  if (!iso) return "—";
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
   return `${d.toLocaleDateString("pt-BR")} · ${d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`;
@@ -28,7 +29,12 @@ export type AtendimentosTabelaProps = {
   onDelete: (a: Atendimento) => void;
 };
 
-export function AtendimentosTabela({ rows, loading = false, onEdit, onDelete }: AtendimentosTabelaProps) {
+export function AtendimentosTabela({
+  rows,
+  loading = false,
+  onEdit,
+  onDelete,
+}: AtendimentosTabelaProps) {
   return (
     <div className="bg-white border border-gray-line rounded-lg overflow-x-auto">
       <table className="w-full">
@@ -59,18 +65,18 @@ export function AtendimentosTabela({ rows, loading = false, onEdit, onDelete }: 
                   <TipoBadge tipo={a.tipo} size="sm" />
                 </td>
                 <td className="px-3 py-2.5 text-[12.5px] text-ink font-medium">
-                  {a.titulo}
+                  {a.titulo || <span className="text-gray-faint">(sem título)</span>}
                 </td>
                 <td className="px-3 py-2.5 text-[12.5px] text-ink">
-                  {a.cliente ? (
+                  {a.cliente_nome ? (
                     <span className="inline-flex items-center gap-1.5">
                       <Briefcase className="w-3 h-3 text-gray-text" strokeWidth={2} />
-                      {a.cliente}
+                      {a.cliente_nome}
                     </span>
-                  ) : a.participantes ? (
+                  ) : a.participante_nome ? (
                     <span className="inline-flex items-center gap-1.5">
                       <User className="w-3 h-3 text-gray-text" strokeWidth={2} />
-                      {a.participantes}
+                      {a.participante_nome}
                     </span>
                   ) : a.empresa_avulsa ? (
                     <span className="inline-flex flex-col">
@@ -95,10 +101,10 @@ export function AtendimentosTabela({ rows, loading = false, onEdit, onDelete }: 
                   )}
                 </td>
                 <td className="px-3 py-2.5 text-[12px] tabular text-gray-text whitespace-nowrap">
-                  {formatDataHora(a.data)}
+                  {formatDataHora(a.agendado_para ?? a.ocorreu_em)}
                 </td>
                 <td className="px-3 py-2.5 text-[12.5px] text-ink">
-                  {a.responsavel}
+                  {a.vendedor_nome ?? <span className="text-gray-faint">—</span>}
                 </td>
                 <td className="px-3 py-2.5">
                   <Pill variant={STATUS_VARIANT[a.status]}>
@@ -107,7 +113,7 @@ export function AtendimentosTabela({ rows, loading = false, onEdit, onDelete }: 
                 </td>
                 <td className="px-3 py-2.5 text-[12px] text-gray-text">
                   <span className="line-clamp-2">
-                    {a.observacao || <span className="text-gray-faint">—</span>}
+                    {a.resumo || <span className="text-gray-faint">—</span>}
                   </span>
                 </td>
                 <td className="px-3 py-2.5 text-right whitespace-nowrap">

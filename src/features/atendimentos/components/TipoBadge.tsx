@@ -1,7 +1,12 @@
 import {
   GraduationCap,
+  Handshake,
   Headphones,
+  Mail,
   MapPin,
+  MessageCircle,
+  Mic,
+  Phone,
   Users,
   Video,
   type LucideIcon,
@@ -15,6 +20,12 @@ const ICON: Record<AtendimentoTipo, LucideIcon> = {
   rota: MapPin,
   treinamento: GraduationCap,
   suporte_interno: Headphones,
+  ligacao: Phone,
+  whatsapp: MessageCircle,
+  email: Mail,
+  visita: Handshake,
+  reuniao: Users,
+  voice_memo: Mic,
 };
 
 // Cada tipo tem sua propria cor para facilitar leitura na lista/tabela.
@@ -24,6 +35,12 @@ const COLOR: Record<AtendimentoTipo, string> = {
   rota: "bg-emerald-50 text-emerald-700 border-emerald-200",
   treinamento: "bg-amber-50 text-amber-700 border-amber-200",
   suporte_interno: "bg-slate-100 text-slate-700 border-slate-200",
+  ligacao: "bg-cyan-50 text-cyan-700 border-cyan-200",
+  whatsapp: "bg-green-50 text-green-700 border-green-200",
+  email: "bg-indigo-50 text-indigo-700 border-indigo-200",
+  visita: "bg-teal-50 text-teal-700 border-teal-200",
+  reuniao: "bg-violet-50 text-violet-700 border-violet-200",
+  voice_memo: "bg-pink-50 text-pink-700 border-pink-200",
 };
 
 export function TipoBadge({

@@ -20,6 +20,12 @@ const TIPO_EVENT_STYLE: Record<AtendimentoTipo, string> = {
   rota: "bg-emerald-100 text-emerald-800 hover:bg-emerald-200",
   treinamento: "bg-amber-100 text-amber-800 hover:bg-amber-200",
   suporte_interno: "bg-slate-200 text-slate-800 hover:bg-slate-300",
+  ligacao: "bg-cyan-100 text-cyan-800 hover:bg-cyan-200",
+  whatsapp: "bg-green-100 text-green-800 hover:bg-green-200",
+  email: "bg-indigo-100 text-indigo-800 hover:bg-indigo-200",
+  visita: "bg-teal-100 text-teal-800 hover:bg-teal-200",
+  reuniao: "bg-violet-100 text-violet-800 hover:bg-violet-200",
+  voice_memo: "bg-pink-100 text-pink-800 hover:bg-pink-200",
 };
 
 function isSameDay(a: Date, b: Date): boolean {
@@ -30,10 +36,16 @@ function isSameDay(a: Date, b: Date): boolean {
   );
 }
 
-function formatHora(iso: string): string {
+function formatHora(iso: string | null): string {
+  if (!iso) return "";
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "";
   return d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+}
+
+// Data de referencia do atendimento no calendario: agendado_para ou (fallback) ocorreu_em
+function dataRef(a: Atendimento): string | null {
+  return a.agendado_para ?? a.ocorreu_em;
 }
 
 export type AtendimentosCalendarioProps = {
@@ -155,8 +167,18 @@ export function AtendimentosCalendario({ items, onEdit }: AtendimentosCalendario
           const inMonth = d.getMonth() === month;
           const isToday = isSameDay(d, today);
           const evts = items
-            .filter((a) => isSameDay(new Date(a.data), d))
-            .sort((a, b) => new Date(a.data).getTime() - new Date(b.data).getTime());
+            .filter((a) => {
+              const ref = dataRef(a);
+              return ref ? isSameDay(new Date(ref), d) : false;
+            })
+            .sort((a, b) => {
+              const ra = dataRef(a);
+              const rb = dataRef(b);
+              return (
+                (ra ? new Date(ra).getTime() : 0) -
+                (rb ? new Date(rb).getTime() : 0)
+              );
+            });
 
           return (
             <div
@@ -196,9 +218,9 @@ export function AtendimentosCalendario({ items, onEdit }: AtendimentosCalendario
                       "block w-full text-left px-1.5 py-0.5 rounded text-[10.5px] leading-tight truncate transition-colors font-medium",
                       TIPO_EVENT_STYLE[e.tipo],
                     )}
-                    title={`${formatHora(e.data)} · ${e.titulo}`}
+                    title={`${formatHora(dataRef(e))} · ${e.titulo}`}
                   >
-                    <span className="tabular mr-1">{formatHora(e.data)}</span>
+                    <span className="tabular mr-1">{formatHora(dataRef(e))}</span>
                     {e.titulo}
                   </button>
                 ))}

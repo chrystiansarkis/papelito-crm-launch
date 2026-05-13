@@ -8,14 +8,13 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { serieDoEscopo, dayOfYear } from "../../../lib/vendasMixPivot";
+import { formatMoney } from "@/lib/format";
 import type { MediaTierGrupoPai, MixFiltros, MixMetrica, VendaLong } from "../../../types";
 
 function fmt(v: number, metrica: MixMetrica): string {
   if (metrica === "pct") return `${v.toFixed(1)}%`;
   if (metrica === "qtd") return v.toLocaleString("pt-BR", { maximumFractionDigits: 0 });
-  if (Math.abs(v) >= 1_000_000) return `R$ ${(v / 1_000_000).toFixed(1)}M`;
-  if (Math.abs(v) >= 1_000) return `R$ ${(v / 1_000).toFixed(0)}k`;
-  return `R$ ${v.toFixed(0)}`;
+  return formatMoney(v);
 }
 
 function breadcrumbDe(rowKey: string | null): string {

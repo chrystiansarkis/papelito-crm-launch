@@ -1,17 +1,11 @@
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { ObservacoesPopover } from "./ObservacoesPopover";
 import { CelulaStacked } from "./CelulaStacked";
+import { formatMoney } from "@/lib/format";
 import { alertaVs2025, corPillSemCompra, type AlertaCor, type PillSemCompraTone } from "../../../lib/vendasMixTendencia";
 import type { ColunaPivot, LinhaPivot, MetricaValores } from "../../../lib/vendasMixPivot";
 import type { MixMetrica } from "../../../types";
 import type { MixColumnId } from "./columns";
-
-function fmtRsCompact(v: number): string {
-  if (v === 0) return "—";
-  if (Math.abs(v) >= 1_000_000) return `R$ ${(v / 1_000_000).toFixed(1)}M`;
-  if (Math.abs(v) >= 1_000) return `R$ ${(v / 1_000).toFixed(0)}k`;
-  return `R$ ${v.toFixed(0)}`;
-}
 
 const SEM_COMPRA_TONE: Record<PillSemCompraTone, string> = {
   soft:   "bg-gray-soft text-gray-faint",
@@ -95,8 +89,8 @@ export function PivotRow({
     selecionado              ? "#FFFBEB" :
     variant === "total"      ? "#FAFAF6" :
     variant === "media_tier" ? "#F4F2EC" :
-    isPai                    ? "#E8E1D0" :
-    isFilho                  ? "#F4F0E6" :
+    isPai                    ? "#EFEBE1" :
+    isFilho                  ? "#F7F4EE" :
     "#FAFAF6";
 
   const baseCls =
@@ -110,12 +104,12 @@ export function PivotRow({
 
   // Tipografia 13px uniforme; varia só peso + cor.
   const labelCls = isPai
-    ? "text-[13px] font-bold text-ink"
+    ? "text-[12px] font-semibold text-ink"
     : isFilho
-      ? "text-[13px] font-medium text-ink"
+      ? "text-[12px] font-medium text-ink"
       : isSkuRow
-        ? "text-[13px] font-normal text-ink-soft"
-        : "text-[13px]";
+        ? "text-[12px] font-normal text-ink-soft"
+        : "text-[12px]";
 
   // Padding por nível (Bloco 2): pai 12px, filho 36px, sku 60px.
   // Total e media_tier usam 12px.
@@ -127,14 +121,14 @@ export function PivotRow({
   function renderMeta(id: MixColumnId) {
     if (id === "total") {
       return (
-        <td key="total" className="px-2 py-1.5 text-right tabular-nums whitespace-nowrap font-medium">
+        <td key="total" className="px-2 py-1 text-right tabular-nums whitespace-nowrap font-medium">
           <CelulaStacked valores={linha.total} metricas={metricas} />
         </td>
       );
     }
     if (id === "venda12m") {
       return (
-        <td key="venda12m" className="px-2 py-1.5 text-right tabular-nums whitespace-nowrap">
+        <td key="venda12m" className="px-2 py-1 text-right tabular-nums whitespace-nowrap">
           <CelulaStacked valores={linha.venda12m} metricas={metricas} />
         </td>
       );
@@ -147,7 +141,7 @@ export function PivotRow({
       const alerta = alertaVs2025(ant, atu);
       const tone = VS_TONE[alerta.cor];
       return (
-        <td key="cresc12m" className="px-2 py-1.5 text-center whitespace-nowrap">
+        <td key="cresc12m" className="px-2 py-1 text-center whitespace-nowrap">
           <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-medium ${tone}`}>
             {alerta.texto}
           </span>
@@ -156,7 +150,7 @@ export function PivotRow({
     }
     if (id === "tend") {
       return (
-        <td key="tend" className="px-2 py-1.5 text-right tabular-nums whitespace-nowrap">
+        <td key="tend" className="px-2 py-1 text-right tabular-nums whitespace-nowrap">
           <CelulaStacked valores={linha.tend2026} metricas={metricas} />
         </td>
       );
@@ -170,7 +164,7 @@ export function PivotRow({
       const alerta = alertaVs2025(fat25, fat26);
       const tone = VS_TONE[alerta.cor];
       return (
-        <td key="vs" className="px-2 py-1.5 text-center whitespace-nowrap">
+        <td key="vs" className="px-2 py-1 text-center whitespace-nowrap">
           <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-medium ${tone}`}>
             {alerta.texto}
           </span>
@@ -179,14 +173,14 @@ export function PivotRow({
     }
     if (id === "ticket") {
       return (
-        <td key="ticket" className="px-2 py-1.5 text-right tabular-nums whitespace-nowrap text-sm">
-          {isSku && linha.ticketMedio12m != null ? fmtRsCompact(linha.ticketMedio12m) : <span className="text-gray-faint">—</span>}
+        <td key="ticket" className="px-2 py-1 text-right tabular-nums whitespace-nowrap text-[12px]">
+          {isSku && linha.ticketMedio12m != null ? formatMoney(linha.ticketMedio12m) : <span className="text-gray-faint">—</span>}
         </td>
       );
     }
     if (id === "sem_compra") {
       return (
-        <td key="sem_compra" className="px-2 py-1.5 text-center whitespace-nowrap">
+        <td key="sem_compra" className="px-2 py-1 text-center whitespace-nowrap">
           <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] ${dias.tone}`}>
             {dias.label}
           </span>
@@ -200,7 +194,7 @@ export function PivotRow({
     }
     if (id === "obs") {
       return (
-        <td key="obs" className="px-2 py-1.5 text-center" onClick={(e) => e.stopPropagation()}>
+        <td key="obs" className="px-2 py-1 text-center" onClick={(e) => e.stopPropagation()}>
           {variant === "normal" && (linha.scope === "grupo_pai" || linha.scope === "grupo_filho" || linha.scope === "sku") && (
             <ObservacoesPopover
               clienteId={clienteId}
@@ -221,7 +215,7 @@ export function PivotRow({
       onClick={onSelect}
     >
       <td
-        className={`py-1.5 pr-2 sticky left-0 z-10 bg-[var(--row-bg)] ${
+        className={`py-1 pr-2 sticky left-0 z-10 bg-[var(--row-bg)] ${
           showStickyShadow ? "shadow-[2px_0_4px_rgba(0,0,0,0.06)]" : ""
         }`}
         style={{ paddingLeft: stickyPaddingLeft }}
@@ -257,7 +251,7 @@ export function PivotRow({
         return (
           <td
             key={c.key}
-            className={`px-2 py-1.5 text-right whitespace-nowrap ${c.isAtual ? "bg-amber-50/40" : ""}`}
+            className={`px-2 py-1 text-right whitespace-nowrap ${c.isAtual ? "bg-amber-50/40" : ""}`}
           >
             <CelulaStacked valores={cell} metricas={metricas} />
           </td>

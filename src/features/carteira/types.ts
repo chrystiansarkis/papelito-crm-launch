@@ -91,6 +91,9 @@ export type CarteiraFiltro = {
   fonte: string; // PROTHEUS | SALESFORCE | SANKHYA
   periodo: string; // ano YYYY
   page: number;
+  // Quando definido (filtros KPI ativos), restringe a tabela a este conjunto.
+  // null/undefined = sem restrição. Array vazio = nenhum cliente.
+  clienteIds?: string[] | null;
 };
 
 export const CARTEIRA_PAGE_SIZE = 50;

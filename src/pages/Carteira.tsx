@@ -90,20 +90,26 @@ export default function Carteira() {
 
   const kpisQuery = useCarteiraKpis(filtro);
   const vendedoresQuery = useCarteiraVendedores();
-  const clientesQuery = useCarteiraClientes(filtro);
   const kpiClientesQuery = useCarteiraKpiClientes(filtro);
   const [idsFiltrados, setIdsFiltrados] = useState<Set<string> | null>(null);
+  const filtroTabela: CarteiraFiltro = useMemo(
+    () => ({
+      ...filtro,
+      clienteIds: idsFiltrados ? Array.from(idsFiltrados) : null,
+    }),
+    [filtro, idsFiltrados],
+  );
+  const clientesQuery = useCarteiraClientes(filtroTabela);
+
+  // Reset de page quando o conjunto de ids do KPI mudar.
+  useEffect(() => {
+    setPage(0);
+  }, [idsFiltrados]);
 
   const total = clientesQuery.data?.total ?? 0;
   const rows = clientesQuery.data?.rows ?? [];
-  const rowsAposIdFilter = useMemo(
-    () => (idsFiltrados ? rows.filter((r) => idsFiltrados.has(r.id)) : rows),
-    [rows, idsFiltrados],
-  );
-  const filteredRows = useMemo(
-    () => applyPreFilter(rowsAposIdFilter, preFilter),
-    [rowsAposIdFilter, preFilter],
-  );
+  // O filtro por id já foi aplicado server-side em listCarteiraClientes.
+  const filteredRows = useMemo(() => applyPreFilter(rows, preFilter), [rows, preFilter]);
 
   function clearSelection() {
     setSelected(new Set());

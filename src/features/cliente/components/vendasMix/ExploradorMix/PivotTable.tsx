@@ -94,6 +94,9 @@ function buildMediaTierLinha(
     fat2025Bruto: { rs: 0, qtd: 0 },
     fat2026Bruto: { rs: 0, qtd: 0 },
     ticketMedio12m: null,
+    venda12m:         { rs: 0, qtd: 0, pct: 0 },
+    venda12mAnterior: { rs: 0, qtd: 0, pct: 0 },
+    cresc12m: { rs: null, qtd: null },
   };
 }
 

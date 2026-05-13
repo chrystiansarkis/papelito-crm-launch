@@ -312,7 +312,7 @@ function GroupHeader({
   label,
   count,
 }: {
-  icon: ComponentType<{ className?: string; strokeWidth?: number }>;
+  icon: ComponentType<{ className?: string; strokeWidth?: number | string }>;
   label: string;
   count: number;
 }) {

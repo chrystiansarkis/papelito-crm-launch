@@ -127,6 +127,7 @@ export type ClienteKpi = {
   tem_salesforce: boolean;
   dias_sem_compra: number | null;
   data_ultima_compra: string | null;
+  data_ultimo_atendimento: string | null;
   faturamento_12m: number;
   faturamento_ytd: number;
   faturamento_ano_anterior: number;

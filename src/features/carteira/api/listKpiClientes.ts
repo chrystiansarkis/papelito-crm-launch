@@ -44,6 +44,7 @@ function rowToCliente(r: Row): ClienteKpi {
     tem_salesforce: bool(r.tem_salesforce),
     dias_sem_compra: nullableNum(r.dias_sem_compra),
     data_ultima_compra: str(r.data_ultima_compra),
+    data_ultimo_atendimento: str(r.data_ultimo_atendimento),
     faturamento_12m: num(r.faturamento_12m),
     faturamento_ytd: num(r.faturamento_ytd),
     faturamento_ano_anterior: num(r.faturamento_ano_anterior),

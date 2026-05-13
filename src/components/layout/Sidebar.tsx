@@ -3,6 +3,7 @@
 import { NavLink, useLocation } from "react-router-dom";
 import {
   BarChart3,
+  CalendarClock,
   Home,
   MapPin,
   Megaphone,
@@ -110,6 +111,7 @@ export const SIDEBAR_BASE_NAV: NavItemConfig[] = [
   { to: "/", label: "Início", icon: Home, roles: ["vendedor", "gestor", "trade", "ceo", "admin", "cobranca"] },
   { to: "/carteira", label: "Carteira", icon: Users, roles: ["vendedor", "gestor", "trade", "ceo", "admin"] },
   { to: "/pedidos", label: "Pedidos", icon: Package, roles: ["vendedor", "ceo"] },
+  { to: "/atendimentos", label: "Atendimentos", icon: CalendarClock, roles: ["vendedor", "gestor", "ceo", "admin"] },
   { to: "/campanhas", label: "Campanhas", icon: Megaphone, roles: ["trade", "ceo"] },
   { to: "/leads", label: "Leads", icon: Zap, badge: { value: 4, variant: "alert" }, roles: ["trade", "vendedor"] },
   { to: "/analise", label: "Análise", icon: BarChart3, roles: ["ceo", "trade"] },

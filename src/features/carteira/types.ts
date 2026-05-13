@@ -149,6 +149,17 @@ export type ClienteKpi = {
   fat_ytd_outros: number;
   valor_vencido: number;
   tem_vencido: boolean;
+  // Faturamento histórico anual (NULL = não comprou naquele ano)
+  fat_2020: number | null;
+  fat_2021: number | null;
+  fat_2022: number | null;
+  fat_2023: number | null;
+  fat_2024: number | null;
+  fat_2025: number | null;
+  fat_2026: number | null;
+  // Tendência projetada para 2026 (currency) e desvio vs tendência (percentual já em %)
+  tendencia_2026: number | null;
+  desvio_2026: number | null;
 };
 
 export type CarteiraFilter = {

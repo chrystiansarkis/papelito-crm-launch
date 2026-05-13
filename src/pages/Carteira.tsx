@@ -21,12 +21,14 @@ import {
   useCarteiraKpiClientes,
   useCarteiraVendedores,
   useColumnSettings,
+  useTableSort,
   type CarteiraCliente,
   type CarteiraFiltro,
   type ClienteKpi,
   type PreFilter,
   type ViewMode,
 } from "@/features/carteira";
+import { sortRows } from "@/features/carteira/lib/sortRows";
 import { useGlobalFilters } from "@/features/shared/globalFilters";
 
 function diasDesde(d: string | null): number | null {
@@ -57,8 +59,10 @@ export default function Carteira() {
   const [preFilter, setPreFilter] = useState<PreFilter>("todos");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const colSettings = useColumnSettings();
+  const { sort, toggle: onSortToggle } = useTableSort();
 
-  // Compõe o filtro da API a partir dos filtros globais + state local de page.
+  // Filtro server-side: só os filtros globais. Paginação e clienteIds (KPI
+  // header) são aplicados client-side agora.
   const filtro: CarteiraFiltro = useMemo(
     () => ({
       busca: gf.busca,
@@ -71,9 +75,9 @@ export default function Carteira() {
       tier: gf.tier,
       fonte: gf.fonte,
       periodo: gf.periodo,
-      page,
+      page: 0,
     }),
-    [gf, page],
+    [gf],
   );
 
   // Reset de page quando qualquer filtro global mudar
@@ -101,31 +105,41 @@ export default function Carteira() {
     for (const k of kpiClientesQuery.data ?? []) m.set(k.cliente_id, k);
     return m;
   }, [kpiClientesQuery.data]);
-  const filtroTabela: CarteiraFiltro = useMemo(
-    () => ({
-      ...filtro,
-      clienteIds: idsFiltrados ? Array.from(idsFiltrados) : null,
-    }),
-    [filtro, idsFiltrados],
-  );
-  const clientesQuery = useCarteiraClientes(filtroTabela);
+  // Server-side query carrega o universo completo (sem paginação, sem KPI ids).
+  const clientesQuery = useCarteiraClientes(filtro);
 
   // Reset de page quando o conjunto de ids do KPI mudar.
   useEffect(() => {
     setPage(0);
-  }, [idsFiltrados]);
+  }, [idsFiltrados, sort.sortBy, sort.direction, preFilter]);
 
-  const total = clientesQuery.data?.total ?? 0;
-  const rows = clientesQuery.data?.rows ?? [];
-  // O filtro por id já foi aplicado server-side em listCarteiraClientes.
-  const filteredRows = useMemo(() => applyPreFilter(rows, preFilter), [rows, preFilter]);
+  const allRows = clientesQuery.data?.rows ?? [];
+
+  // Pipeline client-side: KPI ids → preFilter → sort → slice da página.
+  const filteredRows = useMemo(() => {
+    let rs = allRows;
+    if (idsFiltrados) rs = rs.filter((r) => idsFiltrados.has(r.id));
+    rs = applyPreFilter(rs, preFilter);
+    rs = sortRows(rs, sort, kpiByClienteId);
+    return rs;
+  }, [allRows, idsFiltrados, preFilter, sort, kpiByClienteId]);
+
+  const total = filteredRows.length;
+  const pageRows = useMemo(
+    () =>
+      filteredRows.slice(
+        page * CARTEIRA_PAGE_SIZE,
+        (page + 1) * CARTEIRA_PAGE_SIZE,
+      ),
+    [filteredRows, page],
+  );
 
   function clearSelection() {
     setSelected(new Set());
   }
 
   function selectAll(checked: boolean) {
-    setSelected(checked ? new Set(filteredRows.map((r) => r.id)) : new Set());
+    setSelected(checked ? new Set(pageRows.map((r) => r.id)) : new Set());
   }
 
   function selectRow(id: string, checked: boolean) {
@@ -200,17 +214,19 @@ export default function Carteira() {
             <PreFilterChips
               active={preFilter}
               onChange={onPreFilterChange}
-              rows={rows}
+              rows={allRows}
               total={total}
             />
             <ClientList
-              rows={filteredRows}
+              rows={pageRows}
               loading={clientesQuery.isPending}
               selected={selected}
               onSelectAll={selectAll}
               onSelectRow={selectRow}
               kpiByClienteId={kpiByClienteId}
               visibleColumns={colSettings.visibleColumns}
+              sort={sort}
+              onSortToggle={onSortToggle}
             />
             <div className="mt-3 flex items-center justify-between gap-3 flex-wrap">
               <div className="text-[11px] text-gray-text">
@@ -239,7 +255,7 @@ export default function Carteira() {
             <h3 className="text-sm text-gray-text mb-4">
               Distribuição geográfica — agregação por estado dos clientes na carteira
             </h3>
-            <MapView rows={rows} />
+            <MapView rows={allRows} />
           </div>
         )}
       </div>

@@ -416,12 +416,25 @@ export function ClientList({
   onSelectRow,
   kpiByClienteId,
   visibleColumns,
+  sort,
+  onSortToggle,
 }: ClientListProps) {
   const navigate = useNavigate();
   const allChecked = rows.length > 0 && rows.every((r) => selected.has(r.id));
   const cols = visibleColumns && visibleColumns.length > 0 ? visibleColumns : DEFAULT_VISIBLE;
-  const ctx: CellCtx = { kpiByClienteId };
   const totalCols = cols.length + 1; // +1 = checkbox column
+
+  // Sombra suave à direita das colunas sticky quando há scroll horizontal.
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const [scrolled, setScrolled] = useState(false);
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const onScroll = () => setScrolled(el.scrollLeft > 0);
+    onScroll();
+    el.addEventListener("scroll", onScroll, { passive: true });
+    return () => el.removeEventListener("scroll", onScroll);
+  }, []);
 
   function onRowClick(e: React.MouseEvent, id: string) {
     const target = e.target as HTMLElement;
@@ -430,11 +443,14 @@ export function ClientList({
   }
 
   return (
-    <div className="bg-white border border-gray-line rounded-lg overflow-x-auto">
+    <div
+      ref={scrollRef}
+      className="bg-white border border-gray-line rounded-lg overflow-x-auto"
+    >
       <table className="w-full">
         <thead className="bg-gray-soft">
           <tr>
-            <th className="px-3 py-2.5 text-left w-8">
+            <th className="px-3 py-2.5 text-left w-8 sticky left-0 z-20 bg-gray-soft">
               <input
                 type="checkbox"
                 checked={allChecked}
@@ -445,7 +461,17 @@ export function ClientList({
             </th>
             {cols.map((id) => {
               const r = COLUMN_RENDERERS[id];
-              return <HeaderCell key={id} id={id} render={r.header} />;
+              return (
+                <HeaderCell
+                  key={id}
+                  id={id}
+                  align={r.align}
+                  headerClass={r.headerClass}
+                  sort={sort}
+                  onSortToggle={onSortToggle}
+                  scrolled={scrolled}
+                />
+              );
             })}
           </tr>
         </thead>
@@ -458,16 +484,22 @@ export function ClientList({
           {!loading &&
             rows.map((c) => {
               const isSel = selected.has(c.id);
+              const rowCtx: CellCtx = { kpiByClienteId, isSelected: isSel, scrolled };
               return (
                 <tr
                   key={c.id}
                   onClick={(e) => onRowClick(e, c.id)}
                   className={cn(
-                    "border-b border-gray-line transition-colors cursor-pointer",
+                    "group/row border-b border-gray-line transition-colors cursor-pointer",
                     isSel ? "bg-brand-soft/40" : "hover:bg-gray-soft",
                   )}
                 >
-                  <td className="px-3 py-2.5">
+                  <td
+                    className={cn(
+                      "px-3 py-2.5 sticky left-0 z-10",
+                      isSel ? "bg-brand-soft/95" : "bg-white group-hover/row:bg-gray-soft",
+                    )}
+                  >
                     <input
                       type="checkbox"
                       checked={isSel}
@@ -478,7 +510,7 @@ export function ClientList({
                   </td>
                   {cols.map((id) => {
                     const r = COLUMN_RENDERERS[id];
-                    return <CellWrap key={id} id={id} cliente={c} ctx={ctx} render={r.cell} />;
+                    return <CellWrap key={id} id={id} cliente={c} ctx={rowCtx} render={r.cell} />;
                   })}
                 </tr>
               );
@@ -491,13 +523,71 @@ export function ClientList({
 
 function HeaderCell({
   id,
-  render,
+  align,
+  headerClass,
+  sort,
+  onSortToggle,
+  scrolled,
 }: {
   id: CarteiraColumnId;
-  render: () => JSX.Element;
+  align?: "left" | "right" | "center";
+  headerClass?: string;
+  sort?: SortState;
+  onSortToggle?: (id: CarteiraColumnId) => void;
+  scrolled?: boolean;
 }) {
-  // wrapper só pra manter a key estável; o renderer já retorna o <th>.
-  return render();
+  const def = COLUMN_BY_ID[id];
+  const sortable = def.sortable !== false && !!onSortToggle;
+  const isActive = sort?.sortBy === id && sort.direction != null;
+  const dir = isActive ? sort!.direction : null;
+  const isSticky = id === "cliente";
+
+  const alignCls =
+    align === "right" ? "text-right" : align === "center" ? "text-center" : "text-left";
+  const justifyCls =
+    align === "right" ? "justify-end" : align === "center" ? "justify-center" : "justify-start";
+
+  const stickyCls = isSticky
+    ? cn(
+        "sticky left-8 z-20 bg-gray-soft border-r border-gray-line transition-shadow",
+        scrolled && "shadow-[4px_0_6px_-2px_rgba(0,0,0,0.06)]",
+      )
+    : "";
+
+  const inner = (
+    <span className={cn("inline-flex items-center gap-1", justifyCls)}>
+      <span className={cn(isActive && "font-semibold text-ink")}>{def.label}</span>
+      {sortable && (
+        <span className="inline-flex flex-col -space-y-1 leading-none">
+          {dir === "asc" ? (
+            <ChevronUp className="w-3 h-3 text-ink" strokeWidth={2.5} />
+          ) : dir === "desc" ? (
+            <ChevronDown className="w-3 h-3 text-ink" strokeWidth={2.5} />
+          ) : (
+            <ChevronUp className="w-3 h-3 text-gray-faint opacity-0 group-hover/th:opacity-60" strokeWidth={2} />
+          )}
+        </span>
+      )}
+    </span>
+  );
+
+  return (
+    <th
+      className={cn(
+        "px-3 py-2.5 label-caps text-gray-text",
+        alignCls,
+        headerClass,
+        stickyCls,
+        sortable && "cursor-pointer select-none group/th hover:bg-gray-line/40",
+      )}
+      onClick={sortable ? () => onSortToggle!(id) : undefined}
+      aria-sort={
+        isActive ? (dir === "asc" ? "ascending" : "descending") : sortable ? "none" : undefined
+      }
+    >
+      {inner}
+    </th>
+  );
 }
 
 function CellWrap({

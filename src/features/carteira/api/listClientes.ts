@@ -171,6 +171,11 @@ export async function listCarteiraClientes(
     const fim = `${safe.periodo}-12-31`;
     query = query.gte("data_ultima_compra", inicio).lte("data_ultima_compra", fim);
   }
+  if (safe.clienteIds) {
+    query = safe.clienteIds.length > 0
+      ? query.in("id", safe.clienteIds)
+      : query.eq("id", "00000000-0000-0000-0000-000000000000");
+  }
 
   const from = safe.page * CARTEIRA_PAGE_SIZE;
   const to = (safe.page + 1) * CARTEIRA_PAGE_SIZE - 1;

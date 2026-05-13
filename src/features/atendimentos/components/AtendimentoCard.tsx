@@ -1,4 +1,5 @@
-import { Clock, MapPin, Pencil, User } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Clock, ExternalLink, MapPin, Pencil, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Pill } from "@/components/common/Pill";
 import { TipoBadge } from "./TipoBadge";
@@ -34,8 +35,7 @@ function relativoDoDia(iso: string | null): {
   return { label: `Em ${diffDays} dias`, tone: "later" };
 }
 
-function vinculoLabel(a: Atendimento): string | null {
-  if (a.cliente_nome) return a.cliente_nome;
+function vinculoTextoFallback(a: Atendimento): string | null {
   if (a.participante_nome) return a.participante_nome;
   if (a.empresa_avulsa) {
     return a.contato_avulso
@@ -56,10 +56,11 @@ export function AtendimentoCard({
   variant = "default",
   onEdit,
 }: AtendimentoCardProps) {
+  const navigate = useNavigate();
   const dataRef = a.agendado_para ?? a.ocorreu_em;
   const rel = relativoDoDia(dataRef);
   const overdue = variant === "overdue";
-  const vinculo = vinculoLabel(a);
+  const fallbackVinculo = vinculoTextoFallback(a);
 
   return (
     <div
@@ -91,8 +92,28 @@ export function AtendimentoCard({
           {a.titulo || <span className="text-gray-faint">(sem título)</span>}
         </div>
 
-        {vinculo && (
-          <div className="text-[12px] text-gray-text truncate">{vinculo}</div>
+        {(a.cliente_id || fallbackVinculo) && (
+          <div className="text-[12px] text-gray-text truncate">
+            {a.cliente_id && a.cliente_nome ? (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  navigate(`/cliente/${a.cliente_id}`);
+                }}
+                className="inline-flex items-center gap-1 text-gray-text hover:text-brand transition-colors group"
+                title="Ir para o cliente"
+              >
+                {a.cliente_nome}
+                <ExternalLink
+                  className="w-3 h-3 opacity-0 group-hover:opacity-70"
+                  strokeWidth={2.2}
+                />
+              </button>
+            ) : (
+              <span>{fallbackVinculo}</span>
+            )}
+          </div>
         )}
 
         <div className="flex items-center gap-3 text-[11.5px] text-gray-text flex-wrap">

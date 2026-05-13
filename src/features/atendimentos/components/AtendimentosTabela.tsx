@@ -1,4 +1,5 @@
-import { Briefcase, Building2, Pencil, Trash2, User } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Briefcase, Building2, ExternalLink, Pencil, Trash2, User } from "lucide-react";
 import { Pill, type PillVariant } from "@/components/common/Pill";
 import { LoadingRow, EmptyRow } from "@/components/common/LoadingRow";
 import { TipoBadge } from "./TipoBadge";
@@ -35,6 +36,7 @@ export function AtendimentosTabela({
   onEdit,
   onDelete,
 }: AtendimentosTabelaProps) {
+  const navigate = useNavigate();
   return (
     <div className="bg-white border border-gray-line rounded-lg overflow-x-auto">
       <table className="w-full">
@@ -68,11 +70,23 @@ export function AtendimentosTabela({
                   {a.titulo || <span className="text-gray-faint">(sem título)</span>}
                 </td>
                 <td className="px-3 py-2.5 text-[12.5px] text-ink">
-                  {a.cliente_nome ? (
-                    <span className="inline-flex items-center gap-1.5">
-                      <Briefcase className="w-3 h-3 text-gray-text" strokeWidth={2} />
+                  {a.cliente_id && a.cliente_nome ? (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(`/cliente/${a.cliente_id}`);
+                      }}
+                      className="inline-flex items-center gap-1.5 text-ink hover:text-brand transition-colors group"
+                      title="Ir para o cliente"
+                    >
+                      <Briefcase className="w-3 h-3 text-gray-text group-hover:text-brand" strokeWidth={2} />
                       {a.cliente_nome}
-                    </span>
+                      <ExternalLink
+                        className="w-3 h-3 opacity-0 group-hover:opacity-70"
+                        strokeWidth={2.2}
+                      />
+                    </button>
                   ) : a.participante_nome ? (
                     <span className="inline-flex items-center gap-1.5">
                       <User className="w-3 h-3 text-gray-text" strokeWidth={2} />

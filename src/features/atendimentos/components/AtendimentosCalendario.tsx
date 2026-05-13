@@ -2,7 +2,8 @@
 // Navegacao entre meses/anos e visual — a logica de render so se preocupa com
 // o mes referencia (cells fora do mes ficam atenuadas).
 import { useState } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { ChevronLeft, ChevronRight, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Atendimento, AtendimentoTipo } from "../types";
 
@@ -54,6 +55,7 @@ export type AtendimentosCalendarioProps = {
 };
 
 export function AtendimentosCalendario({ items, onEdit }: AtendimentosCalendarioProps) {
+  const navigate = useNavigate();
   const today = new Date();
   const [ref, setRef] = useState<Date>(() => new Date(today.getFullYear(), today.getMonth(), 1));
   const year = ref.getFullYear();
@@ -210,19 +212,36 @@ export function AtendimentosCalendario({ items, onEdit }: AtendimentosCalendario
 
               <div className="space-y-0.5 flex-1">
                 {evts.slice(0, 3).map((e) => (
-                  <button
+                  <div
                     key={e.id}
-                    type="button"
-                    onClick={() => onEdit(e)}
                     className={cn(
-                      "block w-full text-left px-1.5 py-0.5 rounded text-[10.5px] leading-tight truncate transition-colors font-medium",
+                      "group/event flex items-center w-full rounded text-[10.5px] leading-tight transition-colors font-medium overflow-hidden",
                       TIPO_EVENT_STYLE[e.tipo],
                     )}
-                    title={`${formatHora(dataRef(e))} · ${e.titulo}`}
                   >
-                    <span className="tabular mr-1">{formatHora(dataRef(e))}</span>
-                    {e.titulo}
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() => onEdit(e)}
+                      className="flex-1 min-w-0 text-left px-1.5 py-0.5 truncate"
+                      title={`${formatHora(dataRef(e))} · ${e.titulo}`}
+                    >
+                      <span className="tabular mr-1">{formatHora(dataRef(e))}</span>
+                      {e.titulo}
+                    </button>
+                    {e.cliente_id && (
+                      <button
+                        type="button"
+                        onClick={(ev) => {
+                          ev.stopPropagation();
+                          navigate(`/cliente/${e.cliente_id}`);
+                        }}
+                        className="shrink-0 px-1 py-0.5 opacity-0 group-hover/event:opacity-100 hover:opacity-100 transition-opacity"
+                        title={`Ir para ${e.cliente_nome ?? "cliente"}`}
+                      >
+                        <ExternalLink className="w-3 h-3" strokeWidth={2.2} />
+                      </button>
+                    )}
+                  </div>
                 ))}
                 {evts.length > 3 && (
                   <div className="text-[10px] text-gray-text px-1">

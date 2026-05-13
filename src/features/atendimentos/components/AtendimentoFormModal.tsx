@@ -1,6 +1,8 @@
 // Modal de CRUD de atendimento conectado ao banco real.
 // Reusa SearchSelect (de carteira) + hooks de lookup (vendedores, clientes, contatos).
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { ExternalLink } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
 import {
   Dialog,
@@ -152,6 +154,7 @@ export function AtendimentoFormModal({
   onClose,
   onSaved,
 }: AtendimentoFormModalProps) {
+  const navigate = useNavigate();
   const { data: user } = useCurrentUser();
   const defaultVendedorId = user?.id ?? "";
   const [form, setForm] = useState<FormState>(() => toFormState(initial, defaultVendedorId));
@@ -410,20 +413,31 @@ export function AtendimentoFormModal({
                       emptyLabel="Nenhum cliente encontrado"
                     />
                     {form.cliente_id && (
-                      <SearchSelect
-                        value={form.contato_id}
-                        onChange={(v) => set("contato_id", v)}
-                        options={contatoOptions}
-                        placeholder={
-                          contatosQuery.isPending
-                            ? "Carregando contatos..."
-                            : contatoOptions.length === 0
-                              ? "Cliente sem contatos cadastrados (opcional)"
-                              : "Contato do cliente (opcional)"
-                        }
-                        loading={contatosQuery.isLoading || contatosQuery.isFetching}
-                        emptyLabel="Sem contatos"
-                      />
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => navigate(`/cliente/${form.cliente_id}`)}
+                          className="inline-flex items-center gap-1 text-[11.5px] text-brand hover:underline"
+                          title="Abrir ficha do cliente"
+                        >
+                          Ver detalhes do cliente
+                          <ExternalLink className="w-3 h-3" strokeWidth={2.2} />
+                        </button>
+                        <SearchSelect
+                          value={form.contato_id}
+                          onChange={(v) => set("contato_id", v)}
+                          options={contatoOptions}
+                          placeholder={
+                            contatosQuery.isPending
+                              ? "Carregando contatos..."
+                              : contatoOptions.length === 0
+                                ? "Cliente sem contatos cadastrados (opcional)"
+                                : "Contato do cliente (opcional)"
+                          }
+                          loading={contatosQuery.isLoading || contatosQuery.isFetching}
+                          emptyLabel="Sem contatos"
+                        />
+                      </>
                     )}
                   </div>
                 )}

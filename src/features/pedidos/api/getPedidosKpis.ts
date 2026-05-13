@@ -10,7 +10,10 @@ import { publicDb } from "@/lib/supabase";
 import { pedidoFiltroSchema } from "../schemas";
 import type { PedidoFiltro, PedidosKpis } from "../types";
 
-type Filtered = ReturnType<typeof base>;
+type Filtered = {
+  eq: (...args: any[]) => Filtered;
+  or: (...args: any[]) => Filtered;
+};
 
 function base() {
   return publicDb.from("vw_pedidos_lista" as never);

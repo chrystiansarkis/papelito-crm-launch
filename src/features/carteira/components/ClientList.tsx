@@ -184,6 +184,44 @@ const COLUMN_RENDERERS: Record<CarteiraColumnId, ColumnRenderer> = {
       </td>
     ),
   },
+  fat_2020: makeYearRenderer("fat_2020", "Fat. 2020"),
+  fat_2021: makeYearRenderer("fat_2021", "Fat. 2021"),
+  fat_2022: makeYearRenderer("fat_2022", "Fat. 2022"),
+  fat_2023: makeYearRenderer("fat_2023", "Fat. 2023"),
+  fat_2024: makeYearRenderer("fat_2024", "Fat. 2024"),
+  fat_2025: makeYearRenderer("fat_2025", "Fat. 2025"),
+  fat_2026: makeYearRenderer("fat_2026", "Fat. 2026 YTD"),
+  tendencia_2026: {
+    header: () => <Th className="text-right">Tend. 2026</Th>,
+    cell: (c, ctx) => {
+      const kpi = ctx.kpiByClienteId?.get(c.id);
+      return moneyCompactCell(kpi?.tendencia_2026 ?? null, "text-gray-text");
+    },
+  },
+  desvio_2026: {
+    header: () => <Th className="text-right">Desvio 2026</Th>,
+    cell: (c, ctx) => {
+      const kpi = ctx.kpiByClienteId?.get(c.id);
+      const v = kpi?.desvio_2026 ?? null;
+      return (
+        <td className="px-3 py-2.5 text-right text-[12.5px] tabular whitespace-nowrap">
+          {v == null ? (
+            <span className="text-gray-faint">—</span>
+          ) : (
+            <span
+              className={cn(
+                "font-medium",
+                v > 0.05 ? "text-good" : v < -0.05 ? "text-bad" : "text-gray-text",
+              )}
+            >
+              {v > 0 ? "+" : ""}
+              {v.toFixed(1).replace(".", ",")}%
+            </span>
+          )}
+        </td>
+      );
+    },
+  },
   ticket_medio: {
     header: () => <Th className="text-right">Ticket méd.</Th>,
     cell: (c) => (

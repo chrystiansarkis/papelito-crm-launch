@@ -4,12 +4,14 @@
 // vw_cliente_ficha). É read-only. Os campos `cliente_*` permitem filtrar/exibir
 // dados do cliente sem nova request.
 
-export type PedidoFonte = "PROTHEUS" | "SALESFORCE" | "SANKHYA";
+// SALESFORCE e CRM sao exibidos como "Orcamento" na UI. PROTHEUS = "Pedido".
+export type PedidoFonte = "PROTHEUS" | "SALESFORCE" | "SANKHYA" | "CRM";
 
 export type PedidoStatus =
   | "rascunho"
   | "enviado"
   | "aprovado"
+  | "aguardando_aprovacao"
   | "pendente"
   | "bloqueado"
   | "faturado"
@@ -102,6 +104,7 @@ export const PEDIDO_STATUS_LABEL: Record<PedidoStatus, string> = {
   rascunho: "Rascunho",
   enviado: "Enviado",
   aprovado: "Aprovado",
+  aguardando_aprovacao: "Aguardando aprovação",
   pendente: "Pendente",
   bloqueado: "Bloqueado",
   faturado: "Faturado",
@@ -110,8 +113,85 @@ export const PEDIDO_STATUS_LABEL: Record<PedidoStatus, string> = {
   outro: "Outro",
 };
 
+// PROTHEUS = "Pedido" (ERP). SALESFORCE e CRM sao "Orcamento" (cotacao).
 export const PEDIDO_FONTE_LABEL: Record<PedidoFonte, string> = {
-  PROTHEUS: "Protheus",
-  SALESFORCE: "Salesforce",
+  PROTHEUS: "Pedido",
+  SALESFORCE: "Orçamento",
   SANKHYA: "Sankhya",
+  CRM: "Orçamento",
+};
+
+// ============================================================================
+// Orcamento (pre-pedido CRM)
+// ============================================================================
+export type OrcamentoStatus =
+  | "rascunho"
+  | "ruptura"
+  | "enviado"
+  | "aguardando_aprovacao"
+  | "aprovado"
+  | "recusado";
+
+export const ORCAMENTO_STATUS_VALUES: OrcamentoStatus[] = [
+  "rascunho",
+  "ruptura",
+  "enviado",
+  "aguardando_aprovacao",
+  "aprovado",
+  "recusado",
+];
+
+export const ORCAMENTO_STATUS_LABEL: Record<OrcamentoStatus, string> = {
+  rascunho: "Rascunho",
+  ruptura: "Ruptura",
+  enviado: "Enviado",
+  aguardando_aprovacao: "Aguardando aprovação",
+  aprovado: "Aprovado",
+  recusado: "Recusado",
+};
+
+export type OrcamentoItem = {
+  id: string;
+  orcamento_id: string;
+  sequencia: number;
+  cod_produto: string | null;
+  produto_nome: string;
+  unidade: string | null;
+  qtd: number;
+  vlr_unit: number;
+  vlr_desc: number;
+  vlr_liq: number;
+};
+
+export type Orcamento = {
+  id: string;
+  numero: string;
+  cliente_id: string;
+  cliente_nome: string | null;
+  cliente_fantasia: string | null;
+  vendedor_id: string;
+  vendedor_nome: string | null;
+  tabela_preco_id: string | null;
+  status: OrcamentoStatus;
+  subtotal: number;
+  desconto: number;
+  total: number;
+  validade_dias: number;
+  condicao_pgto: string | null;
+  observacao: string | null;
+  motivo_recusa: string | null;
+  protheus_pedido_id: string | null;
+  created_at: string;
+  updated_at: string;
+  status_changed_at: string;
+};
+
+export type OrcamentoEnvio = {
+  id: string;
+  orcamento_id: string;
+  enviado_por_id: string;
+  destinatarios: { to: string[]; cc?: string[] };
+  assunto: string;
+  resend_id: string | null;
+  created_at: string;
 };

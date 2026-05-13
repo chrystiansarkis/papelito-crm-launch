@@ -11,6 +11,8 @@ import Cliente from "@/pages/Cliente";
 import Cobranca from "@/pages/Cobranca";
 import Pedidos from "@/pages/Pedidos";
 import PedidoPage from "@/pages/Pedido";
+import PedidoNovo from "@/pages/PedidoNovo";
+import PedidoEditar from "@/pages/PedidoEditar";
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 60_000, refetchOnWindowFocus: false } },
@@ -31,6 +33,8 @@ export default function App() {
               <Route path="/cliente/:id" element={<Cliente />} />
               <Route path="/cobranca" element={<Cobranca />} />
               <Route path="/pedidos" element={<Pedidos />} />
+              <Route path="/pedidos/novo" element={<PedidoNovo />} />
+              <Route path="/pedidos/:id/editar" element={<PedidoEditar />} />
               <Route path="/pedido/:id" element={<PedidoPage />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Route>

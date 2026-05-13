@@ -18,6 +18,7 @@ const STATUS_VARIANT: Record<PedidoStatus, PillVariant> = {
   rascunho: "outline",
   enviado: "soft",
   aprovado: "soft",
+  aguardando_aprovacao: "warn",
   pendente: "warn",
   bloqueado: "risk",
   faturado: "healthy",

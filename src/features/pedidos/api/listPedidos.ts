@@ -2,9 +2,9 @@
 //            A05 (filtros validados com zod antes do query builder; sem concat),
 //            A10 (erro do Supabase propagado para react-query; UI mostra texto genérico)
 //
-// Fonte: public.vw_pedidos_enriched (vw_pedidos + JOIN vw_cliente_ficha).
+// Fonte: public.vw_pedidos_lista (UNION ALL de vw_pedidos_enriched + crm.orcamentos).
 // Permite aplicar filtros globais (uf, tipo, saúde, score, programa) que
-// vivem no cliente — sem nova request.
+// vivem no cliente — sem nova request. Orcamentos CRM aparecem com fonte='CRM'.
 import { publicDb } from "@/lib/supabase";
 import { pedidoFiltroSchema } from "../schemas";
 import { PEDIDOS_PAGE_SIZE, type Pedido, type PedidoFiltro } from "../types";
@@ -101,7 +101,7 @@ export async function listPedidos(filtro: PedidoFiltro): Promise<ListPedidosResu
   const safe = pedidoFiltroSchema.parse(filtro);
 
   let query = publicDb
-    .from("vw_pedidos_enriched" as never)
+    .from("vw_pedidos_lista" as never)
     .select("*", { count: "exact" })
     .order("data_pedido", { ascending: false, nullsFirst: false });
 

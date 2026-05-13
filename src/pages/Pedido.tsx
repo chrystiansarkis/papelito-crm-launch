@@ -112,6 +112,11 @@ function handleEditarPedido(pedido: Pedido, navigate: (to: string) => void) {
     });
     return;
   }
-  // Pedidos CRM-side (fonte=CRM, infra futura) → form de edição
-  navigate(`/pedido/${pedido.id}/editar`);
+  // Pedidos CRM-side (fonte=CRM) → form de edição de orçamento
+  if (fonte === "CRM") {
+    navigate(`/pedidos/${pedido.id}/editar`);
+    return;
+  }
+  // Fallback defensivo
+  navigate(`/pedidos/${pedido.id}/editar`);
 }

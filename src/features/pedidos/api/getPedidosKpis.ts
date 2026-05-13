@@ -13,7 +13,7 @@ import type { PedidoFiltro, PedidosKpis } from "../types";
 type Filtered = ReturnType<typeof base>;
 
 function base() {
-  return publicDb.from("vw_pedidos_enriched" as never);
+  return publicDb.from("vw_pedidos_lista" as never);
 }
 
 function applyFilters<T extends { eq: (...args: any[]) => T; or: (...args: any[]) => T }>(

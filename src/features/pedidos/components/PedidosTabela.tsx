@@ -18,6 +18,7 @@ const STATUS_VARIANT: Record<PedidoStatus, PillVariant> = {
   rascunho: "outline",
   enviado: "soft",
   aprovado: "soft",
+  aguardando_aprovacao: "warn",
   pendente: "warn",
   bloqueado: "risk",
   faturado: "healthy",
@@ -27,7 +28,7 @@ const STATUS_VARIANT: Record<PedidoStatus, PillVariant> = {
 };
 
 function fonteLabel(f: string): string {
-  if (f === "PROTHEUS" || f === "SALESFORCE" || f === "SANKHYA") {
+  if (f === "PROTHEUS" || f === "SALESFORCE" || f === "SANKHYA" || f === "CRM") {
     return PEDIDO_FONTE_LABEL[f as keyof typeof PEDIDO_FONTE_LABEL];
   }
   return f;
@@ -78,7 +79,9 @@ export function PedidosTabela({ rows, loading }: PedidosTabelaProps) {
               return (
                 <tr
                   key={p.id}
-                  onClick={() => navigate(`/pedido/${p.id}`)}
+                  onClick={() =>
+                    navigate(p.fonte === "CRM" ? `/pedidos/${p.id}/editar` : `/pedido/${p.id}`)
+                  }
                   className="border-b border-gray-line transition-colors hover:bg-gray-soft cursor-pointer"
                 >
                   <td className="px-3 py-2.5 font-mono text-[12px] text-ink">{p.numero}</td>

@@ -1,9 +1,11 @@
 // Mitigates: A10 (erros do supabase nunca chegam ao usuário; ErrorState mostra texto genérico)
 //
-// Fonte de dados: public.vw_pedidos_enriched (vw_pedidos + JOIN vw_cliente_ficha).
-// Read-only: GRANT só para authenticated. Sem login real, a página fica em estado
-// de erro até auth ser configurado.
+// Fonte de dados: public.vw_pedidos_lista (UNION ALL de vw_pedidos_enriched
+// + crm.orcamentos). Pedidos ERP (PROTHEUS) e orcamentos (SALESFORCE / CRM)
+// aparecem na mesma lista; a coluna "Fonte" diferencia.
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
+import { Plus } from "lucide-react";
 import {
   PedidosTabela,
   PEDIDOS_PAGE_SIZE,
@@ -69,7 +71,6 @@ export default function Pedidos() {
         scope="pedidos"
         vendedores={vendedoresQuery.data ?? []}
         metrics={{
-          // count e ytd refletem o filtro atual
           count: total,
           countLabel: "pedidos",
           ytd: kpisQuery.data?.valor_total ?? null,
@@ -82,12 +83,19 @@ export default function Pedidos() {
           <div>
             <h1 className="font-display text-3xl sm:text-4xl text-ink mb-1">Pedidos</h1>
             <p className="text-[13px] text-gray-text">
-              Pedidos consolidados de Protheus e Salesforce — use os filtros globais para recortar
+              Pedidos e orcamentos consolidados — use os filtros globais para recortar
             </p>
           </div>
+          <Link
+            to="/pedidos/novo"
+            className="inline-flex items-center gap-1.5 px-3 py-2 text-[12.5px] font-semibold bg-brand hover:bg-[#E5B814] active:bg-brand-deep text-ink rounded-md transition-all"
+          >
+            <Plus className="w-3.5 h-3.5" strokeWidth={2.5} />
+            Novo orcamento
+          </Link>
         </div>
 
-        {/* Busca local — fica fora da GlobalBar porque é o único filtro de texto livre */}
+        {/* Busca local */}
         <div className="flex flex-wrap gap-2 items-center">
           <input
             value={gf.busca}

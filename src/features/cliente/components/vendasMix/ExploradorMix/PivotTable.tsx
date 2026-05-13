@@ -94,6 +94,9 @@ function buildMediaTierLinha(
     fat2025Bruto: { rs: 0, qtd: 0 },
     fat2026Bruto: { rs: 0, qtd: 0 },
     ticketMedio12m: null,
+    venda12m:         { rs: 0, qtd: 0, pct: 0 },
+    venda12mAnterior: { rs: 0, qtd: 0, pct: 0 },
+    cresc12m: { rs: null, qtd: null },
   };
 }
 
@@ -227,13 +230,16 @@ export function PivotTable({
               </SortableHeader>
             ))}
             {visibleMeta.map((id) => {
-              const align = id === "obs" || id === "vs" || id === "sem_compra" ? "center" : "right";
+              const align = id === "obs" || id === "vs" || id === "sem_compra" || id === "cresc12m"
+                ? "center" : "right";
               const sortBy =
                 id === "total" ? "__total__"
                 : id === "tend" ? "__tend__"
                 : id === "vs" ? "__vs__"
                 : id === "ticket" ? "__ticket__"
                 : id === "sem_compra" ? "__sem_compra__"
+                : id === "venda12m" ? "__venda12m__"
+                : id === "cresc12m" ? "__cresc12m__"
                 : null;
               if (sortBy) {
                 return (

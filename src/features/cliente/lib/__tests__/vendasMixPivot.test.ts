@@ -23,6 +23,7 @@ const baseFiltros: MixFiltros = {
   granularidade: "ano",
   metricas: ["rs"],
   comparar: "none",
+  detalhe: ["pai", "filho", "sku"],
 };
 
 describe("expandPeriodos", () => {
@@ -66,6 +67,49 @@ describe("buildRows", () => {
   it("normaliza pra % quando metrica=pct", () => {
     const { total } = buildRows(vendas, { ...baseFiltros, metricas: ["pct"] }, new Set());
     expect(total.total.pct).toBe(100);
+  });
+
+  it("filtro DETALHE 'só pais' rende só nivel 1", () => {
+    const { rows } = buildRows(
+      vendas,
+      { ...baseFiltros, detalhe: ["pai"] },
+      new Set(),
+    );
+    expect(rows.every((r) => r.nivel === 1)).toBe(true);
+    expect(rows).toHaveLength(2);
+  });
+
+  it("filtro DETALHE 'só sku' rende lista flat ordenada", () => {
+    const { rows } = buildRows(
+      vendas,
+      { ...baseFiltros, detalhe: ["sku"] },
+      new Set(),
+    );
+    expect(rows.every((r) => r.nivel === 3)).toBe(true);
+    // ordenada por total.rs desc
+    for (let i = 1; i < rows.length; i++) {
+      expect(rows[i - 1].total.rs).toBeGreaterThanOrEqual(rows[i].total.rs);
+    }
+  });
+
+  it("filtro DETALHE 'pai+filho' auto-expande filhos", () => {
+    const { rows } = buildRows(
+      vendas,
+      { ...baseFiltros, detalhe: ["pai", "filho"] },
+      new Set(), // sem expandidos manuais
+    );
+    const filhos = rows.filter((r) => r.nivel === 2);
+    expect(filhos.length).toBeGreaterThan(0);
+    expect(rows.every((r) => r.nivel === 1 || r.nivel === 2)).toBe(true);
+  });
+
+  it("popula campos venda12m e cresc12m", () => {
+    const { rows } = buildRows(vendas, baseFiltros, new Set());
+    const pai = rows[0];
+    expect(pai.venda12m).toBeDefined();
+    expect(pai.venda12mAnterior).toBeDefined();
+    expect(pai.cresc12m).toBeDefined();
+    expect(typeof pai.venda12m.rs).toBe("number");
   });
 });
 

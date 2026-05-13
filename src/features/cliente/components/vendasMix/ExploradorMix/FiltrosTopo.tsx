@@ -10,6 +10,7 @@ import {
 import { DropdownPeriodoTree } from "./DropdownPeriodoTree";
 import type {
   MixComparar,
+  MixDetalheNivel,
   MixFiltros,
   MixGranularidade,
   MixMetrica,
@@ -30,6 +31,21 @@ const COMP_LABEL: Record<MixComparar, string> = {
   anterior: "Cliente vs período anterior",
 };
 const ORDEM_METRICAS: MixMetrica[] = ["rs", "qtd", "pct"];
+const ORDEM_DETALHE: MixDetalheNivel[] = ["pai", "filho", "sku"];
+const DETALHE_LABEL: Record<MixDetalheNivel, string> = {
+  pai: "Grupo pai", filho: "Grupo filho", sku: "Produto",
+};
+function detalheSummary(value: MixDetalheNivel[]): string {
+  const set = new Set(value);
+  if (set.size === 3) return "3 níveis";
+  if (set.has("pai") && set.has("filho") && !set.has("sku")) return "Pai e filho";
+  if (set.has("pai") && set.has("sku") && !set.has("filho")) return "Pai e produtos";
+  if (set.has("filho") && set.has("sku") && !set.has("pai")) return "Filho e produtos";
+  if (set.size === 1 && set.has("pai")) return "Só pais";
+  if (set.size === 1 && set.has("filho")) return "Só filhos";
+  if (set.size === 1 && set.has("sku")) return "Só produtos";
+  return "Nenhum";
+}
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -110,6 +126,48 @@ function MetricaMultiSelect({
   );
 }
 
+function DetalheMultiSelect({
+  value, onChange,
+}: {
+  value: MixDetalheNivel[];
+  onChange: (next: MixDetalheNivel[]) => void;
+}) {
+  function toggle(n: MixDetalheNivel) {
+    const has = value.includes(n);
+    const next = has ? value.filter((x) => x !== n) : [...value, n];
+    const ordered = ORDEM_DETALHE.filter((x) => next.includes(x));
+    if (ordered.length === 0) return; // mínimo 1
+    onChange(ordered);
+  }
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button className="text-sm text-ink hover:bg-gray-soft px-2 py-1 rounded inline-flex items-center gap-1">
+          {detalheSummary(value)}
+          <ChevronDown size={14} />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start">
+        <DropdownMenuLabel className="text-[10px] uppercase tracking-wider text-gray-faint">
+          Níveis exibidos
+        </DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        {ORDEM_DETALHE.map((n) => {
+          const checked = value.includes(n);
+          return (
+            <DropdownMenuItem key={n} onSelect={(e) => { e.preventDefault(); toggle(n); }}>
+              <span className="w-4 inline-flex justify-center">
+                {checked ? <Check size={12} /> : null}
+              </span>
+              {DETALHE_LABEL[n]}
+            </DropdownMenuItem>
+          );
+        })}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 export function FiltrosTopo({
   filtros, onChange,
 }: {
@@ -144,6 +202,12 @@ export function FiltrosTopo({
           options={["none", "media", "anterior"]}
           labels={COMP_LABEL}
           onChange={(comparar) => onChange({ ...filtros, comparar })}
+        />
+      </Field>
+      <Field label="Detalhe">
+        <DetalheMultiSelect
+          value={filtros.detalhe}
+          onChange={(detalhe) => onChange({ ...filtros, detalhe })}
         />
       </Field>
     </div>

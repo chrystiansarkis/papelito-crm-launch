@@ -59,7 +59,7 @@ export function useFichaCliente(id: string | undefined) {
 
   const vendasMensais = useQuery({
     queryKey: enabled ? clienteKeys.vendasMensais(safeId) : ["cliente", "vm", "none"],
-    queryFn: () => listVendasMensais(safeId, 24),
+    queryFn: () => listVendasMensais(safeId, 84),
     enabled,
     staleTime: STALE_LONG,
   });

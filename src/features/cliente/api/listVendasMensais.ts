@@ -4,7 +4,9 @@ import type { VendaMensal } from "../types";
 
 export async function listVendasMensais(
   clienteId: string,
-  meses = 24,
+  // Sprint 2.6c — default 84 (7 anos) pra alimentar tooltip enriquecido do
+  // FaturamentoAnualCard. Cache longa via React Query absorve o custo.
+  meses = 84,
 ): Promise<VendaMensal[]> {
   const { data, error } = await (publicDb.rpc as unknown as (
     fn: string,

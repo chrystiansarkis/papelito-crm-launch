@@ -45,6 +45,10 @@ export type LinhaPivot = {
   fat2025Bruto: { rs: number; qtd: number };
   fat2026Bruto: { rs: number; qtd: number };
   ticketMedio12m: number | null; // R$/un, só nivel SKU
+  // Sprint 2.6c — janelas rolling 12m (independem do filtro de período).
+  venda12m: MetricaValores;
+  venda12mAnterior: MetricaValores;
+  cresc12m: { rs: number | null; qtd: number | null };
 };
 
 export type MixSort = {
@@ -149,9 +153,12 @@ type AggBucket = {
   ytd2026Qtd: number;
   fat2025Rs: number;
   fat2025Qtd: number;
-  // pra ticket médio últimos 12m
+  // pra ticket médio últimos 12m (= rs12mAtual / qtd12mAtual)
   rs12m: number;
   qtd12m: number;
+  // Sprint 2.6c — janela 12m anterior (12-23 meses atrás), pra cresc12m.
+  rs12mAnterior: number;
+  qtd12mAnterior: number;
 };
 
 function emptyBucket(): AggBucket {
@@ -161,6 +168,7 @@ function emptyBucket(): AggBucket {
     ytd2026Rs: 0, ytd2026Qtd: 0,
     fat2025Rs: 0, fat2025Qtd: 0,
     rs12m: 0, qtd12m: 0,
+    rs12mAnterior: 0, qtd12mAnterior: 0,
   };
 }
 
@@ -234,10 +242,16 @@ function bumpBucket(b: AggBucket, colKey: string, rs: number, qtd: number, ano: 
     b.ytd2026Rs += rs; b.ytd2026Qtd += qtd;
   }
   if (ano === 2025) { b.fat2025Rs += rs; b.fat2025Qtd += qtd; }
-  // Últimos 12 meses (rolling)
-  const cutoff = (yearNow * 12 + monthNow) - 12;
-  if (ano * 12 + mes > cutoff && ano * 12 + mes <= yearNow * 12 + monthNow) {
+  // Janelas rolling 12m (Sprint 2.6c).
+  const idxAtual = yearNow * 12 + monthNow;
+  const idx = ano * 12 + mes;
+  const cutoff = idxAtual - 12;       // últimos 12m corridos
+  const cutoffAnt = idxAtual - 24;    // 12-23m atrás
+  if (idx > cutoff && idx <= idxAtual) {
     b.rs12m += rs; b.qtd12m += qtd;
+  }
+  if (idx > cutoffAnt && idx <= cutoff) {
+    b.rs12mAnterior += rs; b.qtd12mAnterior += qtd;
   }
 }
 
@@ -275,6 +289,14 @@ function ticketMedio(b: AggBucket): number | null {
   return t > 0 ? t : null;
 }
 
+// Sprint 2.6c — Cresc. 12m (% atual vs anterior).
+// Reaproveita mesma semântica de alertaVs2025 (que aceita A vs B genérico).
+function calcCresc12m(b: AggBucket): { rs: number | null; qtd: number | null } {
+  const rs = b.rs12mAnterior > 0 ? (b.rs12m / b.rs12mAnterior - 1) * 100 : null;
+  const qtd = b.qtd12mAnterior > 0 ? (b.qtd12m / b.qtd12mAnterior - 1) * 100 : null;
+  return { rs, qtd };
+}
+
 function applySort(rows: LinhaPivot[], sort: MixSort | null, metricaPrim: MixMetrica): LinhaPivot[] {
   if (!sort) return rows;
   const sign = sort.dir === "asc" ? 1 : -1;
@@ -288,6 +310,11 @@ function applySort(rows: LinhaPivot[], sort: MixSort | null, metricaPrim: MixMet
     }
     if (sort.by === "__ticket__") return r.ticketMedio12m ?? -Infinity;
     if (sort.by === "__sem_compra__") return r.diasSemCompra ?? Infinity;
+    if (sort.by === "__venda12m__") return r.venda12m[metricaPrim === "qtd" ? "qtd" : "rs"] ?? 0;
+    if (sort.by === "__cresc12m__") {
+      const v = r.cresc12m[metricaPrim === "qtd" ? "qtd" : "rs"];
+      return v ?? -Infinity;
+    }
     const cell = r.cellsByMetric[sort.by];
     return cell?.[metricaPrim] ?? 0;
   };
@@ -379,7 +406,46 @@ export function buildRows(
       fat2025Bruto: { rs: b.fat2025Rs, qtd: b.fat2025Qtd },
       fat2026Bruto: { rs: b.ytd2026Rs, qtd: b.ytd2026Qtd },
       ticketMedio12m: isSku ? ticketMedio(b) : null,
+      venda12m:         { rs: b.rs12m,         qtd: b.qtd12m,         pct: 0 },
+      venda12mAnterior: { rs: b.rs12mAnterior, qtd: b.qtd12mAnterior, pct: 0 },
+      cresc12m: calcCresc12m(b),
     };
+  }
+
+  // Sprint 2.6c — filtro DETALHE controla quais níveis aparecem.
+  // Default = todos os 3.
+  const detalhe = filtros.detalhe && filtros.detalhe.length > 0
+    ? filtros.detalhe
+    : (["pai", "filho", "sku"] as const);
+  const showPai = detalhe.includes("pai");
+  const showFilho = detalhe.includes("filho");
+  const showSku = detalhe.includes("sku");
+  // Quando o usuário está em modo "default" (3 níveis), respeitamos `expandidos`.
+  // Em qualquer recorte custom, auto-expandimos pra mostrar o que ele pediu.
+  const modoDefault = showPai && showFilho && showSku;
+
+  // Modo "só SKU": lista flat global ordenada por total.rs desc (ignora hierarquia).
+  if (showSku && !showPai && !showFilho) {
+    const flat: LinhaPivot[] = [];
+    buckets.sku.forEach((b, key) => {
+      const label = meta.skuLabel.get(key) ?? key;
+      const cod = key.split(">").slice(-1)[0];
+      const filhoKey = key.split(">").slice(0, 2).join(">");
+      flat.push(
+        lineFromBucket(b, {
+          key, nivel: 3, parentKey: filhoKey,
+          scope: "sku", scopeValue: cod, label,
+        }, true),
+      );
+    });
+    const flatOrd = sort
+      ? applySort(flat, sort, metricaPrim)
+      : flat.sort((a, b) => b.total.rs - a.total.rs);
+    const total = lineFromBucket(buckets.geral, {
+      key: "__total__", nivel: 1, parentKey: null,
+      scope: "total", scopeValue: "__total__", label: "Total",
+    }, false);
+    return { rows: flatOrd, colunas, total };
   }
 
   const linhasPai: LinhaPivot[] = ORDEM_GRUPO_PAI
@@ -400,8 +466,9 @@ export function buildRows(
 
   const rows: LinhaPivot[] = [];
   for (const linhaPai of paiOrdenado) {
-    rows.push(linhaPai);
-    if (!expandidos.has(linhaPai.key)) continue;
+    if (showPai) rows.push(linhaPai);
+    if (!showFilho && !showSku) continue;
+    if (modoDefault && !expandidos.has(linhaPai.key)) continue;
     const filhos: LinhaPivot[] = [];
     buckets.filho.forEach((b, key) => {
       if (!key.startsWith(`${linhaPai.key}>`)) return;
@@ -418,8 +485,9 @@ export function buildRows(
       ? applySort(filhos, sort, metricaPrim)
       : filhos.sort((a, b) => b.total.rs - a.total.rs);
     for (const f of filhosOrd) {
-      rows.push(f);
-      if (!expandidos.has(f.key)) continue;
+      if (showFilho) rows.push(f);
+      if (!showSku) continue;
+      if (modoDefault && !expandidos.has(f.key)) continue;
       const skus: LinhaPivot[] = [];
       buckets.sku.forEach((b, key) => {
         if (!key.startsWith(`${f.key}>`)) return;

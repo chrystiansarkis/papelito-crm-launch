@@ -12,6 +12,7 @@ import {
   PedidosCard,
   EmConstrucaoPane,
   VisaoGeralTab,
+  VendasMixTab,
   useFichaCliente,
 } from "@/features/cliente";
 
@@ -65,7 +66,7 @@ export default function Cliente() {
 
       <div className="p-6">
         {tab === "visao" && <VisaoGeralTab ficha={ficha} />}
-        {tab === "vendas" && <EmConstrucaoPane titulo="Vendas & mix detalhado" />}
+        {tab === "vendas" && id && <VendasMixTab clienteId={id} ficha={ficha} />}
         {tab === "pedidos" && (
           <PedidosCard pedidos={ficha.pedidos.data ?? []} />
         )}

@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { X } from "lucide-react";
 import { formatMoneyShort } from "@/lib/format";
-import { cn } from "@/lib/utils";
 import {
   GRUPOS_PAI,
   GRUPO_LABEL,
@@ -157,6 +156,3 @@ export function CarteiraKpisHeader({
     </section>
   );
 }
-
-// silence unused var warning when desvioColor unused
-export const _unused = cn;

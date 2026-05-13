@@ -12,6 +12,7 @@ import {
   sortableKeyboardCoordinates,
   useSortable,
   verticalListSortingStrategy,
+  arrayMove,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Columns3, GripVertical } from "lucide-react";
@@ -40,6 +41,7 @@ function SortableRow({
     attributes,
     listeners,
     setNodeRef,
+    setActivatorNodeRef,
     transform,
     transition,
     isDragging,
@@ -63,9 +65,11 @@ function SortableRow({
     >
       <button
         type="button"
+        ref={setActivatorNodeRef}
         {...attributes}
         {...listeners}
         aria-label={`Reordenar ${COLUMN_LABEL[id]}`}
+        style={{ touchAction: "none" }}
         className={cn(
           "flex items-center justify-center w-4 h-4 text-gray-faint group-hover:text-gray-text",
           isDragging ? "cursor-grabbing" : "cursor-grab",

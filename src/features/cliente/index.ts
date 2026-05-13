@@ -9,6 +9,7 @@ export { ContatosCard } from "./components/ContatosCard";
 export { ObservacoesCard } from "./components/ObservacoesCard";
 export { EmConstrucaoPane } from "./components/placeholders/EmConstrucaoPane";
 export { VisaoGeralTab } from "./components/visaoGeral/VisaoGeralTab";
+export { VendasMixTab } from "./components/vendasMix/VendasMixTab";
 export {
   useClienteFicha,
   useClientePedidos,

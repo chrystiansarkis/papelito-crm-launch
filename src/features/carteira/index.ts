@@ -10,7 +10,9 @@ export {
   useCarteiraKpis,
   useCarteiraVendedores,
   useCarteiraClientes,
+  useCarteiraKpiClientes,
 } from "./hooks/useCarteira";
+export { CarteiraKpisHeader } from "./components/kpis/CarteiraKpisHeader";
 export { useCadastrarCliente } from "./hooks/useCadastrarCliente";
 export { useUfs, useCidades, useMatrizSearch } from "./hooks/useLookups";
 export { SearchSelect } from "./components/SearchSelect";

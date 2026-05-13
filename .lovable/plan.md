@@ -1,103 +1,189 @@
-## Aba 3 "Régua de comunicação" — Cobranca.tsx
+# Plano — Header de KPIs interativos da Carteira
 
-### Backend (4 views públicas)
+## Objetivo
+Inserir, entre o título "Carteira" e a tabela existente em `src/pages/Carteira.tsx`, três linhas novas de KPIs (5 cards macro + matriz recência × grupo + 3 cards de tendência), todas clicáveis, alimentadas por `public.vw_carteira_clientes_kpi`. A tabela continua usando a fonte atual (`vw_carteira` via `useCarteiraClientes`) com TODAS as colunas e comportamentos preservados; os filtros do KPI apenas restringem o conjunto de `cliente_id` exibido.
 
-Criar via migration SQL nova (`supabase/migrations/<ts>_vw_regua.sql`) — schema das tabelas `crm.regua_cobranca`, `crm.regua_passos`, `crm.regua_execucoes`, `crm.comunicacoes_cobranca` precisa ser inspecionado no editor SQL antes de gerar a migration definitiva. Esboço:
+## Arquitetura de dados — dois datasets, um filtro
 
-```sql
--- 1) vw_regua_kpis
-create or replace view public.vw_regua_kpis as
-select
-  (select count(*) from crm.comunicacoes_cobranca
-     where sent_at >= now() - interval '7 days') as enviadas_7d,
-  (select count(*) from crm.regua_execucoes
-     where (scheduled_at at time zone 'America/Sao_Paulo')::date
-           = (now() at time zone 'America/Sao_Paulo')::date
-       and status not in ('cancelada','enviada')) as agendadas_hoje,
-  (select count(*) from crm.regua_execucoes
-     where scheduled_at >= now()
-       and scheduled_at < now() + interval '7 days'
-       and status not in ('cancelada','enviada')) as agendadas_7d,
-  (
-    with c as (
-      select cliente_id, sent_at
-        from crm.comunicacoes_cobranca
-       where sent_at >= now() - interval '30 days'
-    )
-    select case when count(*) = 0 then null
-                else round(100.0 * sum(case when /* pagou ou prometeu em 7d */
-                                           exists(...) then 1 else 0 end)
-                          / count(*), 1)
-           end
-      from c
-  ) as taxa_sucesso_30d;
-
--- 2) vw_regua_passos: passos da regua default/ativa, ordenado por dia_atraso
--- 3) vw_regua_proximas: execucoes futuras + join cliente/vendedor, limit 100
--- 4) vw_regua_historico: comunicacoes enviadas + cliente, limit 200
-
-grant select on public.vw_regua_kpis,
-                 public.vw_regua_passos,
-                 public.vw_regua_proximas,
-                 public.vw_regua_historico
-  to anon, authenticated;
+```text
+vw_carteira (já existente)        vw_carteira_clientes_kpi (NOVA)
+        |                                  |
+useCarteiraClientes (paginado)    useCarteiraKpiClientes (carrega TUDO ~1700)
+        |                                  |
+   linhasTabela --------+         kpiClientes (in-memory)
+                        |                  |
+                        |          matchesFilter(c, filter)
+                        |                  |
+                        |          idsFiltrados (Set<cliente_id>)
+                        |                  |
+                        +------ AND -------+
+                                |
+                  linhasTabela.filter(l => idsFiltrados.has(l.id))
 ```
 
-Nomes exatos de colunas só serão fechados após inspecionar o schema no Supabase.
+Importante: hoje `useCarteiraClientes` é paginada (50/página, server-side). Para que o filtro por `id` funcione coerentemente, a página manda os filtros do header (vendedor/uf/tipo/etc) para AMBAS as queries; o filtro por `idsFiltrados` é aplicado client-side em cima da página atual da tabela. Isso é suficiente porque os dois datasets já compartilham os mesmos filtros estruturais e o usuário enxerga totais (tabela mostra "X visíveis de Y filtrados").
 
-### Frontend — `src/pages/Cobranca.tsx`
+## Estrutura de arquivos novos
 
-Substituir o placeholder do bloco `aba === "regua"` (linhas 239–245). Tudo isolado, sem mexer em Aba 1 nem Aba 2.
+```text
+src/features/carteira/
+  api/
+    listKpiClientes.ts            // SELECT * FROM vw_carteira_clientes_kpi (sem paginação)
+  hooks/
+    useCarteiraKpiClientes.ts     // react-query wrapper
+  components/
+    kpis/
+      CarteiraKpisHeader.tsx      // orquestrador: 3 linhas + estado filter
+      MacroKpiCard.tsx            // card genérico das 5 colunas da linha 1
+      MatrizRecencia.tsx          // linha 2 inteira
+      CardsTendencia.tsx          // linha 3 (Crescendo / Caindo / Com vencido)
+    LimparFiltrosBtn.tsx          // botão discreto "Limpar filtros"
+  lib/
+    carteiraKpis.ts               // matchesFilter, temFiltroAtivo, agregadores
+                                  // (funções puras, testáveis)
+  types.ts                        // adicionar ClienteKpi + CarteiraFilter
+```
 
-**Tipos locais** (junto dos demais no topo):
+## Modelagem
+
 ```ts
-type ReguaKpis = { enviadas_7d:number; agendadas_hoje:number; agendadas_7d:number; taxa_sucesso_30d:number|null };
-type ReguaPasso = { passo_ordem:number; dia_atraso:number; canal:string; acao:string|null; template_nome:string|null };
-type ReguaProxima = { id:string; cliente_id:string; cliente_nome:string; vendedor_nome:string|null; scheduled_at:string; canal:string; acao:string|null; status:string };
-type ReguaHistorico = { id:string; cliente_id:string; cliente_nome:string; sent_at:string; canal:string; acao:string|null; status:string; observacao:string|null };
+// types.ts (additions)
+export type ClienteKpi = {
+  cliente_id: string;
+  nome_fantasia: string | null;
+  razao_social: string | null;
+  saude: string | null;
+  tipo: string | null;
+  tier: string | null;
+  status_cliente: string | null;
+  score_pagamento: string | null;
+  bloqueado_cobranca: string | null;
+  vendedor_responsavel_id: string | null;
+  dias_sem_compra: number | null;
+  data_ultima_compra: string | null;
+  faturamento_12m: number;
+  faturamento_ytd: number;
+  faturamento_ano_anterior: number;
+  tendencia_ano: number;
+  pct_crescimento: number | null;
+  comprou_2025: boolean;
+  comprou_2026: boolean;
+  fat_12m_papeis: number;  fat_12m_filtros: number;
+  fat_12m_piteiras: number; fat_12m_outros: number;
+  fat_2025_papeis: number; fat_2025_filtros: number;
+  fat_2025_piteiras: number; fat_2025_outros: number;
+  fat_ytd_papeis: number;  fat_ytd_filtros: number;
+  fat_ytd_piteiras: number; fat_ytd_outros: number;
+  valor_vencido: number;
+  tem_vencido: boolean;
+};
+
+export type GrupoPai = 'papeis' | 'filtros' | 'piteiras' | 'outros';
+export type PeriodoGrupo = '2025' | 'ytd' | '12m';
+export type FaixaRecencia = '0-30' | '31-60' | '61-90' | '91-180' | '180+' | 'nunca';
+
+export type CarteiraFilter = {
+  ano_compra: 'comprou_2025' | 'comprou_2026' | null;
+  grupo_pai: GrupoPai | null;
+  periodo_grupo: PeriodoGrupo | null;
+  recencia: FaixaRecencia | null;
+  tendencia: 'crescendo' | 'caindo' | null;
+  vencido: boolean;
+};
 ```
 
-**Estado**: `reguaKpis`, `passos`, `proximas`, `historico`, `loadingAba3`, `filtroCanal` ("" | canal).
+## Lógica pura — `lib/carteiraKpis.ts`
 
-**Fetch**: `useEffect` disparado quando `aba === "regua"`, faz `Promise.all` das 4 views via `publicDb.from("vw_regua_*" as never).select("*")`. Sem refetch em cada filtro — `filtroCanal` só filtra in-memory o `historico`.
+- `matchesFilter(c, f)` — copia o predicado fornecido na spec, com guards de `null`.
+- `temFiltroAtivo(f)` — qualquer dimensão != default.
+- `EMPTY_FILTER` — constante.
+- `toggleAnoCompra`, `toggleGrupoPeriodo`, `toggleRecencia`, `toggleRecenciaGrupo`, `toggleTendencia`, `toggleVencido` — helpers de toggle (clicar duas vezes limpa).
+- `agregarMacro(rows)` — devolve totais para os 5 cards (count, somas por grupo/período, tendência por grupo, desvio por grupo, com guard contra divisão por zero → `null`).
+- `agregarMatrizRecencia(rows)` — devolve as 6 faixas com `count`, `pct`, `total12m`, `por_grupo[grupo] = { valor, qtd }`.
+- `agregarTendencia(rows)` — devolve `crescendo`, `caindo`, `vencido` com `count`, `pct`, `valor`.
+- `diasDecorridosNoAno()` — base para fórmula da tendência por grupo.
 
-**Helpers locais**:
+Todas as funções são puras → testes em `__tests__/carteiraKpis.test.ts` cobrindo: predicados, toggle (idempotência), divisão por zero, lista vazia.
+
+## Componentes
+
+### `CarteiraKpisHeader.tsx`
+- Estado local: `const [filter, setFilter] = useState<CarteiraFilter>(EMPTY_FILTER)`.
+- Recebe `kpiClientes: ClienteKpi[]` (já com filtros do header aplicados upstream).
+- `kpiClientesFiltrados = useMemo(...)`, `idsFiltrados = useMemo(new Set(...))`.
+- Expõe via callback prop `onFilterChange(idsFiltrados | null, ativo)` para a página.
+- Renderiza as 3 linhas. Cada elemento clicável recebe `active` boolean → aplica classes `bg-info / text-info / ring-2 ring-info`.
+- Inclui botão "Limpar filtros" no header da seção quando `temFiltroAtivo`.
+
+### `MacroKpiCard.tsx`
+- Props: `label`, `value`, `subItems: { key, label, value, active, onClick }[]`, `valueColor?`.
+- 5 instâncias na linha 1 conforme spec.
+
+### `MatrizRecencia.tsx`
+- Grid 8 colunas (sm: scroll horizontal).
+- 6 linhas + cores definidas. Linha "Nunca compraram" mostra "—" nas colunas 4–8.
+- Clique na faixa (cols 1-4) → `recencia`. Clique em célula de grupo (cols 5-8) → `recencia + grupo_pai + periodo_grupo='12m'`.
+
+### `CardsTendencia.tsx`
+- 3 cards (Crescendo / Caindo / Com vencido) com ícones `TrendingUp`, `TrendingDown`, `AlertTriangle` do lucide-react.
+
+### `LimparFiltrosBtn.tsx`
+- Botão `<button>` com `<X />` + "Limpar filtros". Posicionado à direita do `<h1>Carteira</h1>`.
+
+## Integração em `src/pages/Carteira.tsx`
+
+```tsx
+const kpiQuery = useCarteiraKpiClientes(filtroHeader); // mesmos filtros de gf
+const [idsFiltrados, setIdsFiltrados] = useState<Set<string> | null>(null);
+
+const linhasTabela = useMemo(() => {
+  if (!idsFiltrados) return rows;
+  return rows.filter(r => idsFiltrados.has(r.id));
+}, [rows, idsFiltrados]);
+```
+
+Ordem visual dentro do `<div className="p-4 ...">`:
+1. Título "Carteira" + `LimparFiltrosBtn` + Novo cliente + ViewToggle (já existem)
+2. `<SubFilters />` (já existe)
+3. **NOVO** `<CarteiraKpisHeader ... />`
+4. `<BulkActionBar />` (já existe)
+5. `<PreFilterChips />` + `<ClientList rows={linhasTabela} />` + paginação (já existe)
+
+Quando `linhasTabela.length === 0` e `idsFiltrados` ativo, `ClientList` recebe rows vazias; adicionar variante de mensagem em `EmptyRow` ("Nenhum cliente atende aos filtros aplicados") apenas quando `temFiltroAtivo`.
+
+## API — `listKpiClientes.ts`
+
 ```ts
-const CANAL_ICON: Record<string, LucideIcon> = {
-  sms: MessageSquare, whatsapp: Smartphone, email: Mail, ligacao: Phone, carta: FileText
-};
-const CANAL_LABEL: Record<string,string> = { sms:"SMS", whatsapp:"WhatsApp", email:"E-mail", ligacao:"Ligação", carta:"Carta" };
-const STATUS_HIST: Record<string,{label:string;color:string}> = {
-  enviada:    { label:"Enviada",    color:"bg-gray-100 text-gray-700" },
-  lida:       { label:"Lida",       color:"bg-blue-100 text-blue-800" },
-  respondida: { label:"Respondida", color:"bg-green-100 text-green-800" },
-  falhou:     { label:"Falhou",     color:"bg-red-100 text-red-800" },
-};
-function quandoLabel(iso:string){ /* hoje/amanhã/data */ }
+export async function listKpiClientes(f: CarteiraFiltroHeader): Promise<ClienteKpi[]> {
+  let q = publicDb.from('vw_carteira_clientes_kpi' as never).select('*');
+  if (f.vendedor) q = q.eq('vendedor_nome', f.vendedor);
+  // ...mesmos filtros que listClientes
+  const { data, error } = await q;
+  if (error) throw error;
+  return (data ?? []).map(normalizeRow); // num() para campos numéricos
+}
 ```
 
-**Layout** dentro de `aba === "regua"`:
+`useCarteiraKpiClientes` usa react-query com `staleTime: 5min` (dataset estável), `placeholderData: prev`.
 
-1. **KPIs (grid 1/2/4 cols)** — 4 `<Kpi>` reutilizando o componente já no arquivo. Card "Agendadas hoje" recebe `valueClass="text-yellow-600"` se `> 0`. "Taxa sucesso 30d" mostra `"—"` quando `null`, classe verde se `>= 50`.
+## Estilos / tokens
+- Reusar tokens existentes (`bg-card`, `border-border`, `text-good/warn/bad`, `text-gray-text`, `font-display`, `tabular`).
+- Adicionar variáveis `--color-background-info`, `--color-text-info`, `--color-border-info` em `index.css` (HSL) para o estado ativo de filtro — único token novo necessário.
+- Cores fixas pedidas (`#BA7517`, `#5F5E5A`) ficam inline na matriz com comentário (são marcadores de risco específicos).
+- Formatação centralizada em `lib/format.ts` — adicionar `formatMoneyShort` (R$ XM) e `formatPctSigned`.
 
-2. **Régua ativa** — `<section>` com header `font-display text-2xl` + contador `(N passos)`. Container `flex gap-3 overflow-x-auto pb-2`. Cada passo é card `min-w-[180px] border rounded-lg p-3 bg-card`:
-   - "Dia X" em `font-display text-lg`
-   - linha com `<Icon size={14}/>` + `CANAL_LABEL[canal]`
-   - linha pequena com `acao` (`text-xs text-muted-foreground`)
-   Entre cards: `<ChevronRight className="opacity-30 self-center shrink-0"/>`.
-   Empty state: card centralizado com `📋` e "Nenhuma régua configurada ainda".
+## Testes
+- `lib/carteiraKpis.test.ts` — predicados, toggles, agregadores, divisão por zero.
+- `__tests__/CarteiraKpisHeader.test.tsx` (RTL) — clique em sub-item ativa filtro; clique repetido limpa; "Limpar filtros" some quando filter vazio.
 
-3. **Próximas comunicações** — `<section>` com header + contador. Tabela com colunas Cliente | Vendedor | Quando | Canal | Ação | Status. `quandoLabel` retorna "Hoje" (laranja), "Amanhã" (amarelo) ou `formatDate`. Linha clicável → `navigate(/cliente/:id)`. Mostra primeiras 50; se `proximas.length > 50`, botão "Ver mais" alterna `mostrarTodasProximas` em state local. Empty state: "Nenhuma comunicação agendada."
+## Critérios de aceite (do enunciado)
+- Total / contagens por ano / soma de fat / tendência / desvio → conferir com SQL no banco e comentar discrepâncias conhecidas.
+- Combinação header + KPI → AND (validado por construção).
+- Toggle dentro de dimensão → mutuamente exclusivo (helpers já fazem isso).
+- Estado vazio amigável.
+- Mobile: grids viram 1 coluna; matriz com `overflow-x-auto`.
 
-4. **Histórico recente** — `<section>` com header + `<select>` `filtroCanal` à direita (Todos / SMS / WhatsApp / Email / Ligação / Carta). Tabela Data | Cliente | Canal | Ação | Status | Observação. Status via `STATUS_HIST`. Observação truncada com `className="truncate max-w-[240px]"` + `title={observacao}`. Linha clicável → ficha. Mostra até 100 itens filtrados. Empty state: "Nenhuma comunicação registrada ainda."
-
-**Imports a adicionar**: `MessageSquare, Smartphone, Mail, Phone, FileText, ChevronRight` de `lucide-react`.
-
-### Critérios
-
-- Aba 3 abre sem erros mesmo com todas as views vazias (cada bloco com seu empty state).
-- 4 KPIs renderizam; `taxa_sucesso_30d` null → "—".
-- Régua = timeline horizontal scrollável com setas.
-- Tabelas próximas/histórico clicáveis → /cliente/:id.
-- Filtro de canal no histórico funciona client-side.
-- Abas 1 e 2 intactas (mudança restrita ao bloco placeholder + novos tipos/helpers no topo do arquivo).
+## Fora de escopo
+- Não alterar `vw_carteira` nem `useCarteiraClientes`.
+- Não mudar colunas, ordenação ou paginação da tabela.
+- Não tocar nas abas Kanban / Mapa (recebem rows brutas como hoje).

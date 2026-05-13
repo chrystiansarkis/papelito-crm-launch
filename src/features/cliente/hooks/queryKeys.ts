@@ -13,4 +13,10 @@ export const clienteKeys = {
     [...clienteKeys.all, "meta", id, ano, tri] as const,
   timeline: (id: string) => [...clienteKeys.all, "timeline", id] as const,
   ranking: () => [...clienteKeys.all, "ranking-fat-12m"] as const,
+  vendasLong: (id: string, anos: number[]) =>
+    [...clienteKeys.all, "vendas-long", id, anos.slice().sort().join(",")] as const,
+  skusPerdidos: (id: string) => [...clienteKeys.all, "skus-perdidos", id] as const,
+  penetracao: () => [...clienteKeys.all, "penetracao-media"] as const,
+  obsProduto: (id: string, scope: string, value: string) =>
+    [...clienteKeys.all, "obs-prod", id, scope, value] as const,
 };

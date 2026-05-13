@@ -81,6 +81,8 @@ function yoyColor(sign: 1 | -1 | 0): string {
 
 type CellCtx = {
   kpiByClienteId?: Map<string, ClienteKpi>;
+  isSelected?: boolean;
+  scrolled?: boolean;
 };
 
 type ColumnRenderer = {

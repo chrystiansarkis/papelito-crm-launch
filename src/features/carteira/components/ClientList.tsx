@@ -3,8 +3,16 @@
 // ClientList: agora consome public.vw_cliente_ficha (via listCarteiraClientes),
 // que traz KPIs financeiros, score de pagamento, cobrança e variação YoY já
 // calculados — não precisamos mais de placeholders "—" nas colunas centrais.
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { AlertTriangle, Handshake, Megaphone, Sparkles } from "lucide-react";
+import {
+  AlertTriangle,
+  ChevronDown,
+  ChevronUp,
+  Handshake,
+  Megaphone,
+  Sparkles,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Pill } from "@/components/common/Pill";
 import { StatusDot } from "@/components/common/StatusDot";
@@ -15,9 +23,10 @@ import { saudeToStatus } from "../lib/mapSaude";
 import type { CarteiraCliente, ClienteKpi } from "../types";
 import {
   CARTEIRA_COLUMNS,
-  COLUMN_LABEL,
+  COLUMN_BY_ID,
   type CarteiraColumnId,
 } from "../lib/columns";
+import type { SortState } from "../hooks/useTableSort";
 
 export type ClientListProps = {
   rows: CarteiraCliente[];
@@ -25,12 +34,10 @@ export type ClientListProps = {
   selected: Set<string>;
   onSelectAll: (checked: boolean) => void;
   onSelectRow: (id: string, checked: boolean) => void;
-  // Mapa cliente_id → KPI (vw_carteira_clientes_kpi). Usado para colunas
-  // "Última venda" e "Último atendimento" sem precisar de query extra.
   kpiByClienteId?: Map<string, ClienteKpi>;
-  // Lista (em ordem) das colunas a renderizar. Sempre inclui "cliente"
-  // como primeira. Default = todas as colunas em ordem padrão.
   visibleColumns?: CarteiraColumnId[];
+  sort?: SortState;
+  onSortToggle?: (id: CarteiraColumnId) => void;
 };
 
 function tipoLabel(c: CarteiraCliente): string {

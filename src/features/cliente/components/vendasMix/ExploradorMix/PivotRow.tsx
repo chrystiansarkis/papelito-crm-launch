@@ -141,12 +141,17 @@ export function PivotRow({
       );
     }
     if (id === "vs") {
-      const v = linha.vs2025?.[metricaPrim === "qtd" ? "qtd" : "rs"] ?? null;
-      const tone = VS_TONE[colorVs2025(v)];
+      // Alerta acionável (Bloco 8): usa brutos de fat25/fat26 pra distinguir
+      // "novo cliente", "ZERO 2026", "estável" etc. — em vez do "-100%" cego.
+      const usarQtd = metricaPrim === "qtd";
+      const fat25 = usarQtd ? linha.fat2025Bruto.qtd : linha.fat2025Bruto.rs;
+      const fat26 = usarQtd ? linha.fat2026Bruto.qtd : linha.fat2026Bruto.rs;
+      const alerta = alertaVs2025(fat25, fat26);
+      const tone = VS_TONE[alerta.cor];
       return (
         <td key="vs" className="px-2 py-1.5 text-center whitespace-nowrap">
-          <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] ${tone}`}>
-            {v == null ? "—" : `${v > 0 ? "+" : ""}${v.toFixed(0)}%`}
+          <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-medium ${tone}`}>
+            {alerta.texto}
           </span>
         </td>
       );

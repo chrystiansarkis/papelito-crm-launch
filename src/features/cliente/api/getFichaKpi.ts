@@ -5,7 +5,8 @@ import type { ClienteFichaKpi } from "../types";
 const COLS =
   "cliente_id,faturamento_12m,faturamento_ano_anterior,pct_crescimento," +
   "data_ultima_compra,dias_sem_compra,data_ultimo_atendimento,tem_vencido,valor_vencido," +
-  "fat_12m_papeis,fat_12m_filtros,fat_12m_piteiras,fat_12m_outros,tier";
+  "fat_12m_papeis,fat_12m_filtros,fat_12m_piteiras,fat_12m_outros,tier," +
+  "fat_2020,fat_2021,fat_2022,fat_2023,fat_2024,fat_2025,fat_2026,tendencia_2026";
 
 export async function getFichaKpi(clienteId: string): Promise<ClienteFichaKpi | null> {
   const { data, error } = await publicDb

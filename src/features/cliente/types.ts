@@ -122,11 +122,14 @@ export type VendaMensal = {
   valor: number;
 };
 
-export type EventoTimelineKind = "pedido" | "ligacao" | "visita" | "anotacao" | "whatsapp" | "email";
+export type EventoTimelineVariant = "atendimento" | "pedido";
 
 export type EventoTimeline = {
   id: string;
-  kind: EventoTimelineKind;
+  variant: EventoTimelineVariant;
+  // Para variant='atendimento', tipo é o atendimento_tipo (rota, suporte_interno, ...).
+  // Para variant='pedido', tipo é null.
+  tipo: string | null;
   data: string;
   titulo: string;
   detalhe: string | null;

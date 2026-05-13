@@ -1,103 +1,138 @@
-## Aba 3 "Régua de comunicação" — Cobranca.tsx
 
-### Backend (4 views públicas)
+## Stack confirmada
 
-Criar via migration SQL nova (`supabase/migrations/<ts>_vw_regua.sql`) — schema das tabelas `crm.regua_cobranca`, `crm.regua_passos`, `crm.regua_execucoes`, `crm.comunicacoes_cobranca` precisa ser inspecionado no editor SQL antes de gerar a migration definitiva. Esboço:
+**dnd-kit** (`@dnd-kit/core` + `@dnd-kit/sortable` + `@dnd-kit/utilities`). Já é o padrão de mercado pra esse caso, leve (~10kb gz), acessível por teclado out-of-the-box, e a API `SortableContext` + `useSortable` resolve drag vertical com snap natural — exatamente o cenário do popover. Não precisa nada além disso.
 
-```sql
--- 1) vw_regua_kpis
-create or replace view public.vw_regua_kpis as
-select
-  (select count(*) from crm.comunicacoes_cobranca
-     where sent_at >= now() - interval '7 days') as enviadas_7d,
-  (select count(*) from crm.regua_execucoes
-     where (scheduled_at at time zone 'America/Sao_Paulo')::date
-           = (now() at time zone 'America/Sao_Paulo')::date
-       and status not in ('cancelada','enviada')) as agendadas_hoje,
-  (select count(*) from crm.regua_execucoes
-     where scheduled_at >= now()
-       and scheduled_at < now() + interval '7 days'
-       and status not in ('cancelada','enviada')) as agendadas_7d,
-  (
-    with c as (
-      select cliente_id, sent_at
-        from crm.comunicacoes_cobranca
-       where sent_at >= now() - interval '30 days'
-    )
-    select case when count(*) = 0 then null
-                else round(100.0 * sum(case when /* pagou ou prometeu em 7d */
-                                           exists(...) then 1 else 0 end)
-                          / count(*), 1)
-           end
-      from c
-  ) as taxa_sucesso_30d;
-
--- 2) vw_regua_passos: passos da regua default/ativa, ordenado por dia_atraso
--- 3) vw_regua_proximas: execucoes futuras + join cliente/vendedor, limit 100
--- 4) vw_regua_historico: comunicacoes enviadas + cliente, limit 200
-
-grant select on public.vw_regua_kpis,
-                 public.vw_regua_passos,
-                 public.vw_regua_proximas,
-                 public.vw_regua_historico
-  to anon, authenticated;
+Instalar:
+```
+bun add @dnd-kit/core @dnd-kit/sortable @dnd-kit/utilities
 ```
 
-Nomes exatos de colunas só serão fechados após inspecionar o schema no Supabase.
+## Modelagem do state
 
-### Frontend — `src/pages/Cobranca.tsx`
+Catálogo central de colunas vive em `src/features/carteira/lib/columns.ts`:
 
-Substituir o placeholder do bloco `aba === "regua"` (linhas 239–245). Tudo isolado, sem mexer em Aba 1 nem Aba 2.
-
-**Tipos locais** (junto dos demais no topo):
 ```ts
-type ReguaKpis = { enviadas_7d:number; agendadas_hoje:number; agendadas_7d:number; taxa_sucesso_30d:number|null };
-type ReguaPasso = { passo_ordem:number; dia_atraso:number; canal:string; acao:string|null; template_nome:string|null };
-type ReguaProxima = { id:string; cliente_id:string; cliente_nome:string; vendedor_nome:string|null; scheduled_at:string; canal:string; acao:string|null; status:string };
-type ReguaHistorico = { id:string; cliente_id:string; cliente_nome:string; sent_at:string; canal:string; acao:string|null; status:string; observacao:string|null };
+export type CarteiraColumnId =
+  | "cliente" | "saude" | "tipo" | "rfv" | "yoy"
+  | "pedidos_12m" | "fat_12m" | "ticket_medio" | "sem_compra"
+  | "ultima_venda" | "ultimo_atendimento" | "vendedor"
+  | "camp" | "vencido" | "limite_pct" | "fin" | "proxima_acao";
+
+export const CARTEIRA_COLUMNS: { id: CarteiraColumnId; label: string; fixed?: boolean }[] = [
+  { id: "cliente", label: "Cliente", fixed: true },
+  { id: "saude", label: "Saúde" },
+  { id: "tipo", label: "Tipo" },
+  { id: "rfv", label: "RFV" },
+  { id: "yoy", label: "YoY" },
+  { id: "pedidos_12m", label: "Pedidos 12m" },
+  { id: "fat_12m", label: "Fat. 12m" },
+  { id: "ticket_medio", label: "Ticket méd." },
+  { id: "sem_compra", label: "Sem compra" },
+  { id: "ultima_venda", label: "Última venda" },
+  { id: "ultimo_atendimento", label: "Último atendimento" },
+  { id: "vendedor", label: "Vendedor" },
+  { id: "camp", label: "Camp." },
+  { id: "vencido", label: "Vencido" },
+  { id: "limite_pct", label: "Limite %" },
+  { id: "fin", label: "Fin." },
+  { id: "proxima_acao", label: "Próxima ação IA" },
+];
+
+export const DEFAULT_VISIBILITY: Record<CarteiraColumnId, boolean> =
+  Object.fromEntries(CARTEIRA_COLUMNS.map(c => [c.id, true])) as any;
+export const DEFAULT_ORDER: CarteiraColumnId[] =
+  CARTEIRA_COLUMNS.filter(c => !c.fixed).map(c => c.id);
 ```
 
-**Estado**: `reguaKpis`, `passos`, `proximas`, `historico`, `loadingAba3`, `filtroCanal` ("" | canal).
+`order` guarda apenas as colunas manipuláveis (cliente fica fora — sempre renderizada primeiro). Isso simplifica o dnd e remove qualquer chance de mover/ocultar a coluna fixa por bug.
 
-**Fetch**: `useEffect` disparado quando `aba === "regua"`, faz `Promise.all` das 4 views via `publicDb.from("vw_regua_*" as never).select("*")`. Sem refetch em cada filtro — `filtroCanal` só filtra in-memory o `historico`.
+## Hook `useColumnSettings`
 
-**Helpers locais**:
+`src/features/carteira/hooks/useColumnSettings.ts`:
+
+- Storage key: `papelito:carteira:column-settings:chrystian`
+- Hidrata do localStorage no mount (lazy initializer no `useState`)
+- Sanitiza o payload contra `CARTEIRA_COLUMNS`: ignora ids desconhecidos e adiciona ids novos no fim do `order` (forward-compat se a gente adicionar coluna nova depois)
+- Persiste em `useEffect` com `setTimeout` debounce ~200ms, limpa no cleanup
+- API exposta:
+  ```ts
+  {
+    visibility: Record<CarteiraColumnId, boolean>,
+    order: CarteiraColumnId[],         // sem "cliente"
+    visibleColumns: CarteiraColumnId[], // ["cliente", ...order.filter(visible)]
+    toggle(id): void,
+    reorder(from: CarteiraColumnId, to: CarteiraColumnId): void,
+    reset(): void,
+  }
+  ```
+
+## Componente `ColumnSettings`
+
+`src/features/carteira/components/ColumnSettings.tsx`:
+
+- shadcn `Popover` (já existe em `src/components/ui/popover.tsx`), `PopoverContent` align="end" sideOffset=8 width 280px
+- Trigger: botão estilo igual aos outros do header (`inline-flex items-center gap-1.5 px-3 py-2 text-[12.5px] ...`) com `Columns3` da lucide
+- Conteúdo:
+  - Header "Colunas da tabela" (`text-xs font-semibold text-gray-text uppercase tracking-wide`)
+  - Linha fixa CLIENTE no topo: slot vazio do tamanho do grip + Checkbox (shadcn) `disabled checked` envolto em `Tooltip` "Coluna principal"
+  - `<DndContext>` + `<SortableContext items={order} strategy={verticalListSortingStrategy}>` com cada item via `SortableItem` interno (usa `useSortable`)
+  - `SortableItem`: `flex items-center gap-2 py-2 px-2 rounded hover:bg-gray-soft`, `GripVertical` (h-3.5 w-3.5 text-gray-faint, group-hover:text-gray-text, cursor-grab) + Checkbox + label (text-sm text-ink). Aplica `transform`/`transition` do dnd-kit. Durante drag (`isDragging`), `bg-white shadow-md`.
+  - Footer: `border-t pt-2 mt-2 flex items-center justify-between`. Esquerda contador `{visibleCount} de {totalCount} visíveis`. Direita botão "Resetar pro padrão" (`text-xs text-gray-text underline-offset-2 hover:underline hover:text-ink`)
+- `onDragEnd` chama `reorder(active.id, over.id)`
+
+## Integração com a tabela
+
+`ClientList.tsx` recebe nova prop `visibleColumns: CarteiraColumnId[]` e renderiza `<th>`/`<td>` em loop sobre essa lista, num único registry:
+
 ```ts
-const CANAL_ICON: Record<string, LucideIcon> = {
-  sms: MessageSquare, whatsapp: Smartphone, email: Mail, ligacao: Phone, carta: FileText
-};
-const CANAL_LABEL: Record<string,string> = { sms:"SMS", whatsapp:"WhatsApp", email:"E-mail", ligacao:"Ligação", carta:"Carta" };
-const STATUS_HIST: Record<string,{label:string;color:string}> = {
-  enviada:    { label:"Enviada",    color:"bg-gray-100 text-gray-700" },
-  lida:       { label:"Lida",       color:"bg-blue-100 text-blue-800" },
-  respondida: { label:"Respondida", color:"bg-green-100 text-green-800" },
-  falhou:     { label:"Falhou",     color:"bg-red-100 text-red-800" },
-};
-function quandoLabel(iso:string){ /* hoje/amanhã/data */ }
+const COLUMN_RENDERERS: Record<CarteiraColumnId, {
+  header: () => JSX.Element;
+  cell: (c, ctx) => JSX.Element;
+}> = { ... };
 ```
 
-**Layout** dentro de `aba === "regua"`:
+Cada entrada do registry contém o `<th>` e o `<td>` atuais (o conteúdo de cada célula que já existe hoje, só extraído pra função). Isso elimina a duplicação atual de 17 `<th>`/`<td>` hardcoded e desbloqueia o reorder/hide sem `if`s espalhados. `ctx` carrega o necessário (`kpiByClienteId`, helpers `tipoLabel`, `yoyVariation`, `formatMoney`, etc).
 
-1. **KPIs (grid 1/2/4 cols)** — 4 `<Kpi>` reutilizando o componente já no arquivo. Card "Agendadas hoje" recebe `valueClass="text-yellow-600"` se `> 0`. "Taxa sucesso 30d" mostra `"—"` quando `null`, classe verde se `>= 50`.
+A coluna do checkbox de seleção (primeira) e a coluna `cliente` continuam sempre presentes — checkbox antes, cliente depois — e o loop começa depois delas. O `colSpan` do `LoadingRow`/`EmptyRow` passa a ser `visibleColumns.length + 1` (checkbox).
 
-2. **Régua ativa** — `<section>` com header `font-display text-2xl` + contador `(N passos)`. Container `flex gap-3 overflow-x-auto pb-2`. Cada passo é card `min-w-[180px] border rounded-lg p-3 bg-card`:
-   - "Dia X" em `font-display text-lg`
-   - linha com `<Icon size={14}/>` + `CANAL_LABEL[canal]`
-   - linha pequena com `acao` (`text-xs text-muted-foreground`)
-   Entre cards: `<ChevronRight className="opacity-30 self-center shrink-0"/>`.
-   Empty state: card centralizado com `📋` e "Nenhuma régua configurada ainda".
+## Render em `Carteira.tsx`
 
-3. **Próximas comunicações** — `<section>` com header + contador. Tabela com colunas Cliente | Vendedor | Quando | Canal | Ação | Status. `quandoLabel` retorna "Hoje" (laranja), "Amanhã" (amarelo) ou `formatDate`. Linha clicável → `navigate(/cliente/:id)`. Mostra primeiras 50; se `proximas.length > 50`, botão "Ver mais" alterna `mostrarTodasProximas` em state local. Empty state: "Nenhuma comunicação agendada."
+```tsx
+const colSettings = useColumnSettings();
+...
+<div className="flex items-center gap-2">
+  <Link to="/carteira/novo">...</Link>
+  <ViewToggle ... />
+  <ColumnSettings settings={colSettings} />
+</div>
+...
+<ClientList ... visibleColumns={colSettings.visibleColumns} />
+```
 
-4. **Histórico recente** — `<section>` com header + `<select>` `filtroCanal` à direita (Todos / SMS / WhatsApp / Email / Ligação / Carta). Tabela Data | Cliente | Canal | Ação | Status | Observação. Status via `STATUS_HIST`. Observação truncada com `className="truncate max-w-[240px]"` + `title={observacao}`. Linha clicável → ficha. Mostra até 100 itens filtrados. Empty state: "Nenhuma comunicação registrada ainda."
+## Arquivos
 
-**Imports a adicionar**: `MessageSquare, Smartphone, Mail, Phone, FileText, ChevronRight` de `lucide-react`.
+**Novos:**
+- `src/features/carteira/lib/columns.ts` — catálogo + defaults + tipo `CarteiraColumnId`
+- `src/features/carteira/hooks/useColumnSettings.ts`
+- `src/features/carteira/components/ColumnSettings.tsx`
 
-### Critérios
+**Editados:**
+- `src/features/carteira/components/ClientList.tsx` — refator pra registry de colunas + nova prop `visibleColumns`
+- `src/pages/Carteira.tsx` — instancia hook, renderiza `<ColumnSettings>` no header, passa `visibleColumns` pro `ClientList`
+- `src/features/carteira/index.ts` — re-export `ColumnSettings`, `useColumnSettings`, tipo `CarteiraColumnId`
+- `package.json` — deps dnd-kit (via `bun add`)
 
-- Aba 3 abre sem erros mesmo com todas as views vazias (cada bloco com seu empty state).
-- 4 KPIs renderizam; `taxa_sucesso_30d` null → "—".
-- Régua = timeline horizontal scrollável com setas.
-- Tabelas próximas/histórico clicáveis → /cliente/:id.
-- Filtro de canal no histórico funciona client-side.
-- Abas 1 e 2 intactas (mudança restrita ao bloco placeholder + novos tipos/helpers no topo do arquivo).
+## Gotchas
+
+1. **Refator do `ClientList` é a parte arriscada.** São 17 colunas com markup denso (Pills, ProgressBar, ícones, formatadores). Vou extrair cada `<th>`/`<td>` 1-pra-1 pro registry sem mudar nenhum classe ou lógica de cor — assim o diff visual é zero quando todas estão visíveis na ordem default. Vale rodar a página com defaults e comparar antes/depois.
+2. **`colSpan` do `LoadingRow`/`EmptyRow`** precisa virar dinâmico (`visibleColumns.length + 1`), senão quebra o "Nenhum cliente encontrado" quando o usuário oculta colunas.
+3. **Persistência durante drag**: cada `onDragEnd` dispara um `setState` → `useEffect` → escrita. Debounce de 200ms cobre o caso de o usuário arrastar várias colunas em sequência. Não é crítico, mas evita writes desnecessárias.
+4. **Sanitização do payload do localStorage** é importante: se a gente renomear/remover uma coluna no futuro, o JSON antigo do usuário não pode quebrar a página. O hook filtra ids desconhecidos e mescla novos no fim do array.
+5. **dnd-kit + Radix Popover**: o `PointerSensor` do dnd-kit funciona dentro do PopoverContent sem ajuste. Só preciso configurar `activationConstraint: { distance: 4 }` pra não disparar drag em click acidental no checkbox.
+6. **`PreFilterChips` mostra contagem por categoria** baseado nas rows atuais — não é afetado por colunas, só por linhas. Ok.
+7. **Ordenação da tabela por coluna** não existe hoje (a tabela vem ordenada por faturamento desc do backend). O reorder é puramente visual; não introduz click-to-sort. Fica fora de escopo, alinhado com o pedido.
+
+## Validação
+
+Após implementar: abrir `/carteira`, conferir que (a) a tabela renderiza idêntica ao estado atual com defaults, (b) ocultar 2-3 colunas reflete na tabela, (c) arrastar reordena, (d) reload mantém estado, (e) "Resetar pro padrão" volta tudo, (f) Cliente nunca some nem se move.

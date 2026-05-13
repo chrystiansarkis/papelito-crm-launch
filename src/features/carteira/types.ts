@@ -91,6 +91,91 @@ export type CarteiraFiltro = {
   fonte: string; // PROTHEUS | SALESFORCE | SANKHYA
   periodo: string; // ano YYYY
   page: number;
+  // Quando definido (filtros KPI ativos), restringe a tabela a este conjunto.
+  // null/undefined = sem restrição. Array vazio = nenhum cliente.
+  clienteIds?: string[] | null;
 };
 
 export const CARTEIRA_PAGE_SIZE = 50;
+
+// =====================================================================
+// KPIs novos — alimentados por public.vw_carteira_clientes_kpi
+// (1 linha por cliente, ~1700 rows). Carregamos tudo e agregamos no front.
+// =====================================================================
+
+export type GrupoPai = "papeis" | "filtros" | "piteiras" | "outros";
+export type PeriodoGrupo = "2025" | "ytd" | "12m";
+export type FaixaRecencia = "0-30" | "31-60" | "61-90" | "91-180" | "180+" | "nunca";
+
+export type ClienteKpi = {
+  cliente_id: string;
+  nome_fantasia: string | null;
+  razao_social: string | null;
+  saude: string | null;
+  tipo: string | null;
+  tier: string | null;
+  status_cliente: string | null;
+  score_pagamento: string | null;
+  bloqueado_cobranca: string | null;
+  vendedor_responsavel_id: string | null;
+  vendedor_nome: string | null;
+  uf: string | null;
+  em_familia_papelito: boolean;
+  em_pdv_perfeito: boolean;
+  tem_protheus: boolean;
+  tem_sankhya: boolean;
+  tem_salesforce: boolean;
+  dias_sem_compra: number | null;
+  data_ultima_compra: string | null;
+  data_ultimo_atendimento: string | null;
+  faturamento_12m: number;
+  faturamento_ytd: number;
+  faturamento_ano_anterior: number;
+  tendencia_ano: number;
+  pct_crescimento: number | null;
+  comprou_2025: boolean;
+  comprou_2026: boolean;
+  fat_12m_papeis: number;
+  fat_12m_filtros: number;
+  fat_12m_piteiras: number;
+  fat_12m_outros: number;
+  fat_2025_papeis: number;
+  fat_2025_filtros: number;
+  fat_2025_piteiras: number;
+  fat_2025_outros: number;
+  fat_ytd_papeis: number;
+  fat_ytd_filtros: number;
+  fat_ytd_piteiras: number;
+  fat_ytd_outros: number;
+  valor_vencido: number;
+  tem_vencido: boolean;
+  // Faturamento histórico anual (NULL = não comprou naquele ano)
+  fat_2020: number | null;
+  fat_2021: number | null;
+  fat_2022: number | null;
+  fat_2023: number | null;
+  fat_2024: number | null;
+  fat_2025: number | null;
+  fat_2026: number | null;
+  // Tendência projetada para 2026 (currency) e desvio vs tendência (percentual já em %)
+  tendencia_2026: number | null;
+  desvio_2026: number | null;
+};
+
+export type CarteiraFilter = {
+  ano_compra: "comprou_2025" | "comprou_2026" | null;
+  grupo_pai: GrupoPai | null;
+  periodo_grupo: PeriodoGrupo | null;
+  recencia: FaixaRecencia | null;
+  tendencia: "crescendo" | "caindo" | null;
+  vencido: boolean;
+};
+
+export const EMPTY_CARTEIRA_FILTER: CarteiraFilter = {
+  ano_compra: null,
+  grupo_pai: null,
+  periodo_grupo: null,
+  recencia: null,
+  tendencia: null,
+  vencido: false,
+};

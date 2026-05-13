@@ -21,4 +21,5 @@ export const clienteKeys = {
     [...clienteKeys.all, "obs-prod", id, scope, value] as const,
   mediaTierGrupoPai: (tier: string | null, anos: number[]) =>
     [...clienteKeys.all, "media-tier-gp", tier ?? "geral", anos.slice().sort().join(",")] as const,
+  grupoDisplayNomes: () => [...clienteKeys.all, "grupo-display-nomes"] as const,
 };

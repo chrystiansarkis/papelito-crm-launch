@@ -6,7 +6,10 @@ export async function listVendasMensais(
   clienteId: string,
   meses = 24,
 ): Promise<VendaMensal[]> {
-  const { data, error } = await publicDb.rpc("fn_vendas_mensais_cliente" as never, {
+  const { data, error } = await (publicDb.rpc as unknown as (
+    fn: string,
+    args: Record<string, unknown>,
+  ) => Promise<{ data: unknown; error: unknown }>)("fn_vendas_mensais_cliente", {
     p_cliente_id: clienteId,
     p_meses: meses,
   });

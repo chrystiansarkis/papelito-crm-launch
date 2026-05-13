@@ -289,6 +289,14 @@ function ticketMedio(b: AggBucket): number | null {
   return t > 0 ? t : null;
 }
 
+// Sprint 2.6c — Cresc. 12m (% atual vs anterior).
+// Reaproveita mesma semântica de alertaVs2025 (que aceita A vs B genérico).
+function calcCresc12m(b: AggBucket): { rs: number | null; qtd: number | null } {
+  const rs = b.rs12mAnterior > 0 ? (b.rs12m / b.rs12mAnterior - 1) * 100 : null;
+  const qtd = b.qtd12mAnterior > 0 ? (b.qtd12m / b.qtd12mAnterior - 1) * 100 : null;
+  return { rs, qtd };
+}
+
 function applySort(rows: LinhaPivot[], sort: MixSort | null, metricaPrim: MixMetrica): LinhaPivot[] {
   if (!sort) return rows;
   const sign = sort.dir === "asc" ? 1 : -1;
@@ -393,6 +401,9 @@ export function buildRows(
       fat2025Bruto: { rs: b.fat2025Rs, qtd: b.fat2025Qtd },
       fat2026Bruto: { rs: b.ytd2026Rs, qtd: b.ytd2026Qtd },
       ticketMedio12m: isSku ? ticketMedio(b) : null,
+      venda12m:         { rs: b.rs12m,         qtd: b.qtd12m,         pct: 0 },
+      venda12mAnterior: { rs: b.rs12mAnterior, qtd: b.qtd12mAnterior, pct: 0 },
+      cresc12m: calcCresc12m(b),
     };
   }
 

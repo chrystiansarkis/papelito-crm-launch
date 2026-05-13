@@ -407,6 +407,39 @@ export function buildRows(
     };
   }
 
+  // Sprint 2.6c — filtro DETALHE controla quais níveis aparecem.
+  // Default = todos os 3.
+  const detalhe = filtros.detalhe && filtros.detalhe.length > 0
+    ? filtros.detalhe
+    : (["pai", "filho", "sku"] as const);
+  const showPai = detalhe.includes("pai");
+  const showFilho = detalhe.includes("filho");
+  const showSku = detalhe.includes("sku");
+
+  // Modo "só SKU": lista flat global ordenada por total.rs desc (ignora hierarquia).
+  if (showSku && !showPai && !showFilho) {
+    const flat: LinhaPivot[] = [];
+    buckets.sku.forEach((b, key) => {
+      const label = meta.skuLabel.get(key) ?? key;
+      const cod = key.split(">").slice(-1)[0];
+      const filhoKey = key.split(">").slice(0, 2).join(">");
+      flat.push(
+        lineFromBucket(b, {
+          key, nivel: 3, parentKey: filhoKey,
+          scope: "sku", scopeValue: cod, label,
+        }, true),
+      );
+    });
+    const flatOrd = sort
+      ? applySort(flat, sort, metricaPrim)
+      : flat.sort((a, b) => b.total.rs - a.total.rs);
+    const total = lineFromBucket(buckets.geral, {
+      key: "__total__", nivel: 1, parentKey: null,
+      scope: "total", scopeValue: "__total__", label: "Total",
+    }, false);
+    return { rows: flatOrd, colunas, total };
+  }
+
   const linhasPai: LinhaPivot[] = ORDEM_GRUPO_PAI
     .filter((p) => buckets.pai.has(p))
     .map((p) =>
@@ -425,8 +458,14 @@ export function buildRows(
 
   const rows: LinhaPivot[] = [];
   for (const linhaPai of paiOrdenado) {
-    rows.push(linhaPai);
-    if (!expandidos.has(linhaPai.key)) continue;
+    if (showPai) rows.push(linhaPai);
+    // Quando pai está oculto, filhos são auto-expandidos.
+    // Quando filho/sku estão ocultos, drill subsequente também é pulado.
+    const drillFilhos = showFilho || showSku;
+    if (!drillFilhos) continue;
+    const paiAutoExpand = !showPai;
+    if (showPai && !expandidos.has(linhaPai.key)) continue;
+    void paiAutoExpand;
     const filhos: LinhaPivot[] = [];
     buckets.filho.forEach((b, key) => {
       if (!key.startsWith(`${linhaPai.key}>`)) return;
@@ -443,8 +482,11 @@ export function buildRows(
       ? applySort(filhos, sort, metricaPrim)
       : filhos.sort((a, b) => b.total.rs - a.total.rs);
     for (const f of filhosOrd) {
-      rows.push(f);
-      if (!expandidos.has(f.key)) continue;
+      if (showFilho) rows.push(f);
+      if (!showSku) continue;
+      // Filho auto-expandido quando filho está oculto OU quando pai está oculto.
+      const filhoAutoExpand = !showFilho || !showPai;
+      if (showFilho && !filhoAutoExpand && !expandidos.has(f.key)) continue;
       const skus: LinhaPivot[] = [];
       buckets.sku.forEach((b, key) => {
         if (!key.startsWith(`${f.key}>`)) return;

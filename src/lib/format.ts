@@ -9,10 +9,8 @@ export function formatMoney(n: number | null | undefined): string {
 }
 
 export function formatMoneyShort(n: number | null | undefined): string {
-  const v = n ?? 0;
-  if (v >= 1_000_000) return `R$ ${(v / 1_000_000).toFixed(1)}M`;
-  if (v >= 1_000) return `R$ ${(v / 1_000).toFixed(0)}k`;
-  return formatMoney(v);
+  // Sprint 2.6d — alias pra formatMoney (BR completo, sem K/M).
+  return formatMoney(n);
 }
 
 export function formatDate(d: string | null | undefined): string {

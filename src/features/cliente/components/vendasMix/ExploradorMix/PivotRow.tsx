@@ -89,34 +89,33 @@ export function PivotRow({
   const isFilho = linha.nivel === 2;
   const isSkuRow = linha.nivel === 3;
 
-  // Hierarquia visual (Bloco 2). Cada linha define seu próprio bg opaco
-  // pra que a sticky column não vaze conteúdo por trás.
-  const stickyBg =
-    variant === "total"     ? "bg-paper" :
-    variant === "media_tier" ? "bg-[#F4F2EC]" :
-    selecionado              ? "bg-amber-50" :
-    isPai                    ? "bg-[#F0EDE6]" :
-    "bg-paper";
+  // Sprint 2.6c — Bloco 1.
+  // Hierarquia via CSS variable --row-bg na <tr>; sticky <td> herda.
+  const rowBg =
+    selecionado              ? "#FFFBEB" :
+    variant === "total"      ? "var(--paper)" :
+    variant === "media_tier" ? "#F4F2EC" :
+    isPai                    ? "#E8E1D0" :
+    isFilho                  ? "#F4F0E6" :
+    "var(--paper)";
 
   const baseCls =
     variant === "total"
-      ? "font-medium text-ink border-t-2 border-ink"
+      ? "font-semibold text-ink border-t-2 border-ink"
       : variant === "media_tier"
         ? "text-ink-soft italic"
         : isPai
           ? "border-b border-gray-line"
-          : selecionado
-            ? ""
-            : "hover:bg-gray-soft/40";
+          : "";
 
-  // Tipografia por nível
+  // Tipografia 13px uniforme; varia só peso + cor.
   const labelCls = isPai
-    ? "text-[14px] font-bold text-ink"
+    ? "text-[13px] font-bold text-ink"
     : isFilho
       ? "text-[13px] font-medium text-ink"
       : isSkuRow
-        ? "text-[12px] font-normal text-ink-soft"
-        : "text-sm";
+        ? "text-[13px] font-normal text-ink-soft"
+        : "text-[13px]";
 
   // Padding por nível (Bloco 2): pai 12px, filho 36px, sku 60px.
   // Total e media_tier usam 12px.
@@ -130,6 +129,28 @@ export function PivotRow({
       return (
         <td key="total" className="px-2 py-1.5 text-right tabular-nums whitespace-nowrap font-medium">
           <CelulaStacked valores={linha.total} metricas={metricas} />
+        </td>
+      );
+    }
+    if (id === "venda12m") {
+      return (
+        <td key="venda12m" className="px-2 py-1.5 text-right tabular-nums whitespace-nowrap">
+          <CelulaStacked valores={linha.venda12m} metricas={metricas} />
+        </td>
+      );
+    }
+    if (id === "cresc12m") {
+      // alertaVs2025 é genérico — compara A vs B. Aqui A=12m anterior, B=12m atual.
+      const usarQtd = metricaPrim === "qtd";
+      const ant = usarQtd ? linha.venda12mAnterior.qtd : linha.venda12mAnterior.rs;
+      const atu = usarQtd ? linha.venda12m.qtd : linha.venda12m.rs;
+      const alerta = alertaVs2025(ant, atu);
+      const tone = VS_TONE[alerta.cor];
+      return (
+        <td key="cresc12m" className="px-2 py-1.5 text-center whitespace-nowrap">
+          <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-medium ${tone}`}>
+            {alerta.texto}
+          </span>
         </td>
       );
     }
@@ -194,9 +215,13 @@ export function PivotRow({
   }
 
   return (
-    <tr className={`${baseCls} cursor-pointer`} onClick={onSelect}>
+    <tr
+      className={`${baseCls} cursor-pointer bg-[var(--row-bg)]`}
+      style={{ ["--row-bg" as string]: rowBg } as React.CSSProperties}
+      onClick={onSelect}
+    >
       <td
-        className={`py-1.5 pr-2 sticky left-0 z-10 ${stickyBg} ${
+        className={`py-1.5 pr-2 sticky left-0 z-10 bg-[var(--row-bg)] ${
           showStickyShadow ? "shadow-[2px_0_4px_rgba(0,0,0,0.06)]" : ""
         }`}
         style={{ paddingLeft: stickyPaddingLeft }}

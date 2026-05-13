@@ -40,6 +40,7 @@ function SortableRow({
     attributes,
     listeners,
     setNodeRef,
+    setActivatorNodeRef,
     transform,
     transition,
     isDragging,
@@ -63,9 +64,11 @@ function SortableRow({
     >
       <button
         type="button"
+        ref={setActivatorNodeRef}
         {...attributes}
         {...listeners}
         aria-label={`Reordenar ${COLUMN_LABEL[id]}`}
+        style={{ touchAction: "none" }}
         className={cn(
           "flex items-center justify-center w-4 h-4 text-gray-faint group-hover:text-gray-text",
           isDragging ? "cursor-grabbing" : "cursor-grab",

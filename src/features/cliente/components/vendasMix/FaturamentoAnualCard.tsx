@@ -201,6 +201,23 @@ function CustomTooltip({
           )}
         </>
       )}
+      {s.breakdown.length > 0 && (
+        <>
+          <div className="border-b border-gray-line my-1" />
+          <div className="text-ink-soft text-[10px] uppercase tracking-wide mb-0.5">
+            Por categoria
+          </div>
+          {s.breakdown.map((b) => (
+            <div key={b.grupo} className="flex justify-between items-baseline">
+              <span className="text-ink">• {GRUPO_LABEL[b.grupo] ?? b.grupo}</span>
+              <span className="tabular-nums text-ink">
+                {formatMoneyShort(b.valor)}{" "}
+                <span className="text-ink-soft">{b.share.toFixed(0)}%</span>
+              </span>
+            </div>
+          ))}
+        </>
+      )}
     </div>
   );
 }

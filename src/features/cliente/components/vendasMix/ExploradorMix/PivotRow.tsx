@@ -93,11 +93,11 @@ export function PivotRow({
   // Hierarquia via CSS variable --row-bg na <tr>; sticky <td> herda.
   const rowBg =
     selecionado              ? "#FFFBEB" :
-    variant === "total"      ? "var(--paper)" :
+    variant === "total"      ? "#FAFAF6" :
     variant === "media_tier" ? "#F4F2EC" :
     isPai                    ? "#E8E1D0" :
     isFilho                  ? "#F4F0E6" :
-    "var(--paper)";
+    "#FAFAF6";
 
   const baseCls =
     variant === "total"

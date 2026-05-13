@@ -235,7 +235,7 @@ export default function Atendimentos() {
           <ChipGroup
             label="Tipo"
             value={filtroTipo}
-            onChange={setFiltroTipo}
+            onChange={(v) => setFiltroTipo(v as typeof filtroTipo)}
             options={[
               { value: "todos", label: "Todos" },
               ...ATENDIMENTO_TIPOS_TODOS.map((t) => ({
@@ -248,7 +248,7 @@ export default function Atendimentos() {
           <ChipGroup
             label="Status"
             value={filtroStatus}
-            onChange={setFiltroStatus}
+            onChange={(v) => setFiltroStatus(v as typeof filtroStatus)}
             options={[
               { value: "todos", label: "Todos" },
               ...ATENDIMENTO_STATUSES.map((s) => ({

@@ -7,6 +7,7 @@ export function CardWrap({
   badge,
   children,
   footer,
+  headerRight,
 }: {
   title: string;
   meta?: string;
@@ -14,6 +15,7 @@ export function CardWrap({
   badge?: ReactNode;
   children: ReactNode;
   footer?: ReactNode;
+  headerRight?: ReactNode;
 }) {
   return (
     <section className="border border-gray-line rounded-lg bg-white">
@@ -26,6 +28,7 @@ export function CardWrap({
           </div>
           {subtitle && <div className="text-xs text-gray-text mt-0.5">{subtitle}</div>}
         </div>
+        {headerRight && <div className="shrink-0">{headerRight}</div>}
       </header>
       <div className="p-4">{children}</div>
       {footer && (

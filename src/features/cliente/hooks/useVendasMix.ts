@@ -4,6 +4,7 @@ import { listVendasLong } from "../api/listVendasLong";
 import { listSkusPerdidos } from "../api/listSkusPerdidos";
 import { getPenetracaoMedia } from "../api/getPenetracaoMedia";
 import { listObservacoesProduto } from "../api/listObservacoesProduto";
+import { getMediaTierGrupoPai } from "../api/getMediaTierGrupoPai";
 import {
   criarObservacaoProduto,
   type CriarObservacaoInput,
@@ -13,7 +14,11 @@ import type { ObsProdutoScope } from "../types";
 const STALE = 5 * 60 * 1000;
 const STALE_REF = 30 * 60 * 1000;
 
-export function useVendasMix(clienteId: string | undefined, anos: number[]) {
+export function useVendasMix(
+  clienteId: string | undefined,
+  anos: number[],
+  tier: string | null = null,
+) {
   const enabled = !!clienteId;
   const safe = clienteId ?? "";
 
@@ -37,7 +42,13 @@ export function useVendasMix(clienteId: string | undefined, anos: number[]) {
     staleTime: STALE_REF,
   });
 
-  return { vendasLong, skusPerdidos, penetracao };
+  const mediaTier = useQuery({
+    queryKey: clienteKeys.mediaTierGrupoPai(tier, anos),
+    queryFn: () => getMediaTierGrupoPai(tier, anos),
+    staleTime: STALE_REF,
+  });
+
+  return { vendasLong, skusPerdidos, penetracao, mediaTier };
 }
 
 export function useObservacoesProduto(

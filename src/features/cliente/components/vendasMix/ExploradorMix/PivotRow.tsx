@@ -1,14 +1,15 @@
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { ObservacoesPopover } from "./ObservacoesPopover";
-import type { ColunaPivot, LinhaPivot } from "../../../lib/vendasMixPivot";
+import { CelulaStacked } from "./CelulaStacked";
+import { colorVs2025 } from "../../../lib/vendasMixPivot";
+import type { ColunaPivot, LinhaPivot, MetricaValores } from "../../../lib/vendasMixPivot";
 import type { MixMetrica } from "../../../types";
+import type { MixColumnId } from "./columns";
 
-function formatCell(v: number, metrica: MixMetrica): string {
+function fmtRsCompact(v: number): string {
   if (v === 0) return "—";
-  if (metrica === "pct") return `${v.toFixed(1)}%`;
-  if (metrica === "qtd") return v.toLocaleString("pt-BR", { maximumFractionDigits: 0 });
-  if (v >= 1_000_000) return `R$ ${(v / 1_000_000).toFixed(1)}M`;
-  if (v >= 1_000) return `R$ ${(v / 1_000).toFixed(0)}k`;
+  if (Math.abs(v) >= 1_000_000) return `R$ ${(v / 1_000_000).toFixed(1)}M`;
+  if (Math.abs(v) >= 1_000) return `R$ ${(v / 1_000).toFixed(0)}k`;
   return `R$ ${v.toFixed(0)}`;
 }
 
@@ -19,37 +20,125 @@ function pillDias(d: number | null): { tone: string; label: string } {
   return { tone: "bg-red-50 text-red-700", label: `${d}d` };
 }
 
+const MES_PT = ["jan","fev","mar","abr","mai","jun","jul","ago","set","out","nov","dez"];
+function fmtUltimaCompra(iso: string | null): string {
+  if (!iso) return "";
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
+  if (!m) return "";
+  const [, y, mo, d] = m;
+  const idx = parseInt(mo, 10) - 1;
+  if (idx < 0 || idx > 11) return "";
+  return `${d}/${MES_PT[idx]}/${y.slice(2)}`;
+}
+
+const VS_TONE: Record<"verde" | "ambar" | "vermelho" | "cinza", string> = {
+  verde: "bg-emerald-50 text-emerald-700",
+  ambar: "bg-amber-50 text-amber-700",
+  vermelho: "bg-red-50 text-red-700",
+  cinza: "bg-gray-soft text-gray-faint",
+};
+
 export function PivotRow({
   linha,
   colunas,
-  metrica,
+  metricas,
+  visibleMeta,
   expandivel,
   expandido,
   onToggleExpand,
   selecionado,
   onSelect,
   clienteId,
-  isTotal,
+  variant = "normal",
 }: {
   linha: LinhaPivot;
   colunas: ColunaPivot[];
-  metrica: MixMetrica;
+  metricas: MixMetrica[];
+  visibleMeta: MixColumnId[]; // ordem renderizada das colunas-meta
   expandivel: boolean;
   expandido: boolean;
   onToggleExpand?: () => void;
   selecionado: boolean;
   onSelect?: () => void;
   clienteId: string;
-  isTotal?: boolean;
+  variant?: "normal" | "total" | "media_tier";
 }) {
   const pad = (linha.nivel - 1) * 14;
   const dias = pillDias(linha.diasSemCompra);
+  const isSku = linha.scope === "sku";
+  const metricaPrim: MixMetrica = metricas[0] ?? "rs";
 
-  const baseCls = isTotal
-    ? "bg-white font-medium text-ink border-t-2 border-ink"
-    : selecionado
-      ? "bg-amber-50/60"
-      : "hover:bg-gray-soft/50";
+  const baseCls =
+    variant === "total"
+      ? "bg-white font-medium text-ink border-t-2 border-ink"
+      : variant === "media_tier"
+        ? "bg-[#F4F2EC] text-ink-soft italic"
+        : selecionado
+          ? "bg-amber-50/60"
+          : "hover:bg-gray-soft/50";
+
+  function renderMeta(id: MixColumnId) {
+    if (id === "total") {
+      return (
+        <td key="total" className="px-2 py-1.5 text-right tabular-nums whitespace-nowrap font-medium">
+          <CelulaStacked valores={linha.total} metricas={metricas} />
+        </td>
+      );
+    }
+    if (id === "tend") {
+      return (
+        <td key="tend" className="px-2 py-1.5 text-right tabular-nums whitespace-nowrap">
+          <CelulaStacked valores={linha.tend2026} metricas={metricas} />
+        </td>
+      );
+    }
+    if (id === "vs") {
+      const v = linha.vs2025?.[metricaPrim === "qtd" ? "qtd" : "rs"] ?? null;
+      const tone = VS_TONE[colorVs2025(v)];
+      return (
+        <td key="vs" className="px-2 py-1.5 text-center whitespace-nowrap">
+          <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] ${tone}`}>
+            {v == null ? "—" : `${v > 0 ? "+" : ""}${v.toFixed(0)}%`}
+          </span>
+        </td>
+      );
+    }
+    if (id === "ticket") {
+      return (
+        <td key="ticket" className="px-2 py-1.5 text-right tabular-nums whitespace-nowrap text-sm">
+          {isSku && linha.ticketMedio12m != null ? fmtRsCompact(linha.ticketMedio12m) : <span className="text-gray-faint">—</span>}
+        </td>
+      );
+    }
+    if (id === "sem_compra") {
+      return (
+        <td key="sem_compra" className="px-2 py-1.5 text-center whitespace-nowrap">
+          <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] ${dias.tone}`}>
+            {dias.label}
+          </span>
+          {linha.ultimaCompra && (
+            <span className="ml-1 text-[10px] text-ink-soft tabular-nums">
+              · {fmtUltimaCompra(linha.ultimaCompra)}
+            </span>
+          )}
+        </td>
+      );
+    }
+    if (id === "obs") {
+      return (
+        <td key="obs" className="px-2 py-1.5 text-center" onClick={(e) => e.stopPropagation()}>
+          {variant === "normal" && (linha.scope === "grupo_pai" || linha.scope === "grupo_filho" || linha.scope === "sku") && (
+            <ObservacoesPopover
+              clienteId={clienteId}
+              scope={linha.scope}
+              scopeValue={linha.scopeValue}
+            />
+          )}
+        </td>
+      );
+    }
+    return null;
+  }
 
   return (
     <tr className={`text-sm ${baseCls} cursor-pointer`} onClick={onSelect}>
@@ -57,10 +146,7 @@ export function PivotRow({
         <div className="flex items-center gap-1.5">
           {expandivel ? (
             <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onToggleExpand?.();
-              }}
+              onClick={(e) => { e.stopPropagation(); onToggleExpand?.(); }}
               className="text-gray-faint hover:text-ink"
             >
               {expandido ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
@@ -68,41 +154,23 @@ export function PivotRow({
           ) : (
             <span className="w-3" />
           )}
-          <span className={`truncate ${linha.nivel === 1 ? "text-ink font-medium" : "text-ink-soft"}`}>
+          <span className={`truncate ${linha.nivel === 1 && variant !== "media_tier" ? "text-ink font-medium" : ""}`}>
             {linha.label}
           </span>
         </div>
       </td>
       {colunas.map((c) => {
-        const v = linha.cells[c.key] ?? 0;
+        const cell: MetricaValores | null = linha.cellsByMetric[c.key] ?? null;
         return (
           <td
             key={c.key}
-            className={`px-2 py-1.5 text-right tabular-nums whitespace-nowrap ${
-              c.isAtual ? "bg-amber-50/40" : ""
-            }`}
+            className={`px-2 py-1.5 text-right whitespace-nowrap ${c.isAtual ? "bg-amber-50/40" : ""}`}
           >
-            {formatCell(v, metrica)}
+            <CelulaStacked valores={cell} metricas={metricas} />
           </td>
         );
       })}
-      <td className="px-2 py-1.5 text-right tabular-nums whitespace-nowrap font-medium">
-        {formatCell(linha.total, metrica)}
-      </td>
-      <td className="px-2 py-1.5 text-center">
-        <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] ${dias.tone}`}>
-          {dias.label}
-        </span>
-      </td>
-      <td className="px-2 py-1.5 text-center" onClick={(e) => e.stopPropagation()}>
-        {!isTotal && (
-          <ObservacoesPopover
-            clienteId={clienteId}
-            scope={linha.scope}
-            scopeValue={linha.scopeValue}
-          />
-        )}
-      </td>
+      {visibleMeta.map((id) => renderMeta(id))}
     </tr>
   );
 }

@@ -91,6 +91,8 @@ function buildMediaTierLinha(
     diasSemCompra: null,
     tend2026: null,
     vs2025: null,
+    fat2025Bruto: { rs: 0, qtd: 0 },
+    fat2026Bruto: { rs: 0, qtd: 0 },
     ticketMedio12m: null,
   };
 }

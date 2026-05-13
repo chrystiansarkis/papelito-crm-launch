@@ -4,6 +4,9 @@ export { SubFilters } from "./components/SubFilters";
 export { PreFilterChips, type PreFilter } from "./components/PreFilterChips";
 export { BulkActionBar } from "./components/BulkActionBar";
 export { ClientList } from "./components/ClientList";
+export { ColumnSettings } from "./components/ColumnSettings";
+export { useColumnSettings } from "./hooks/useColumnSettings";
+export type { CarteiraColumnId } from "./lib/columns";
 export { KanbanView } from "./components/KanbanView";
 export { MapView } from "./components/MapView";
 export {

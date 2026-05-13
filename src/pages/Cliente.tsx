@@ -42,10 +42,10 @@ export default function Cliente() {
   return (
     <div className="p-6 space-y-6">
       <button
-        onClick={() => navigate("/carteira")}
+        onClick={() => navigate(-1)}
         className="text-sm text-muted-foreground hover:text-ink"
       >
-        ← Voltar para Carteira
+        ← Voltar
       </button>
 
       <ClienteHeader cliente={cliente} />

@@ -5,10 +5,11 @@ import { listCarteiraClientes } from "../api/listClientes";
 import { carteiraKeys } from "./queryKeys";
 import type { CarteiraFiltro } from "../types";
 
-export function useCarteiraKpis() {
+export function useCarteiraKpis(filtros: CarteiraFiltro) {
   return useQuery({
-    queryKey: carteiraKeys.kpis(),
-    queryFn: getCarteiraKpis,
+    queryKey: [...carteiraKeys.kpis(), filtros],
+    queryFn: () => getCarteiraKpis(filtros),
+    placeholderData: (prev) => prev,
   });
 }
 

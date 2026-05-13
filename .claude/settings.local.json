@@ -1,0 +1,34 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__claude_ai_Supabase__list_projects",
+      "mcp__claude_ai_Supabase__execute_sql",
+      "mcp__claude_ai_Supabase__apply_migration",
+      "Bash(npx tsc *)",
+      "PowerShell(npx tsc --noEmit 2>&1)",
+      "Bash(./node_modules/.bin/tsc --noEmit)",
+      "Bash(echo \"EXIT=$?\")",
+      "Bash(./node_modules/.bin/vitest run *)",
+      "mcp__claude_ai_Supabase__get_advisors",
+      "mcp__claude_ai_Supabase__get_logs",
+      "Bash(echo \"TSC=$?\")",
+      "Bash(curl -s -w '\\\\nHTTP %{http_code} time %{time_total}s\\\\n' -H 'apikey: sb_publishable_VevFoPjmfv96lHDlyTpfjw_kkzhZ_6b' -H 'Authorization: Bearer sb_publishable_VevFoPjmfv96lHDlyTpfjw_kkzhZ_6b' -H 'Accept-Profile: public' https://sxzjalmiltzwnmvfzoar.supabase.co/rest/v1/vw_pedidos_vendedores?select=vendedor_nome)",
+      "Bash(curl -s -w '\\\\nHTTP %{http_code}\\\\n' -X POST -H 'apikey: sb_publishable_VevFoPjmfv96lHDlyTpfjw_kkzhZ_6b' -H 'Authorization: Bearer sb_publishable_VevFoPjmfv96lHDlyTpfjw_kkzhZ_6b' -H 'Content-Type: application/json' -H 'Content-Profile: public' -d '{\"payload\":{\"nome\":\"TESTE CADASTRO\",\"cnpj_cpf\":\"12345678901234\",\"uf\":\"SP\",\"tipo_conta\":\"PDV\",\"tipo_pessoa\":\"J\",\"segmento_cliente\":\"Cigarro\"}}' https://sxzjalmiltzwnmvfzoar.supabase.co/rest/v1/rpc/fn_cadastrar_cliente_crm)",
+      "Bash(curl -s -w '\\\\nHTTP %{http_code}\\\\n' -X POST -H 'apikey: sb_publishable_VevFoPjmfv96lHDlyTpfjw_kkzhZ_6b' -H 'Authorization: Bearer sb_publishable_VevFoPjmfv96lHDlyTpfjw_kkzhZ_6b' -H 'Content-Type: application/json' -H 'Content-Profile: public' -d '{\"payload\":{ *)",
+      "Bash(echo \"EXIT: $?\")",
+      "Bash(npx eslint *)",
+      "Bash(npx vite *)",
+      "Bash(Get-ChildItem -Path \"C:\\\\repo\\\\papelito-crm-launch\\\\src\\\\pages\\\\\" -File | Select-Object Name)",
+      "mcp__claude_ai_Supabase__list_organizations",
+      "mcp__claude_ai_Supabase__list_tables",
+      "mcp__claude_ai_Supabase__list_migrations",
+      "Bash(python3)",
+      "Bash(echo \"exit=$?\")",
+      "Bash(Get-ChildItem -Path \"c:\\\\repo\\\\papelito-crm-launch\\\\src\\\\lib\" -File)",
+      "Bash(Select-Object FullName, Name)",
+      "Bash(xargs grep -l \"fn_\\\\|\\\\.rpc\\\\\\(\")",
+      "Bash(PowerShell -Command \"Get-Content 'C:\\\\Users\\\\Papelito\\\\.claude\\\\projects\\\\c--repo-papelito-crm-launch\\\\9eb9c203-4e8c-4280-8875-b43d398efbbd\\\\tool-results\\\\mcp-claude_ai_Supabase-list_tables-1778637321964.txt' | Select-String -Pattern '\\(estoque|stock|saldo|ruptura|disponivel|preco|tabela_preco|precificacao|lista|pedido|orcamento|cotacao|cliente\\)' -AllMatches | Select-Object -First 100\")",
+      "Bash(xargs grep -l '\\\\.insert\\(\\\\|\\\\.update\\(\\\\|\\\\.rpc\\(')"
+    ]
+  }
+}

@@ -1,6 +1,10 @@
 // Mitigates: A05 (texto exibido como text node React, sem dangerouslySetInnerHTML)
+//
+// ClientList: agora consome public.vw_cliente_ficha (via listCarteiraClientes),
+// que traz KPIs financeiros, score de pagamento, cobrança e variação YoY já
+// calculados — não precisamos mais de placeholders "—" nas colunas centrais.
 import { useNavigate } from "react-router-dom";
-import { Megaphone, Sparkles } from "lucide-react";
+import { AlertTriangle, Handshake, Megaphone, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Pill } from "@/components/common/Pill";
 import { StatusDot } from "@/components/common/StatusDot";
@@ -18,24 +22,19 @@ export type ClientListProps = {
   onSelectRow: (id: string, checked: boolean) => void;
 };
 
-function diasDesde(d: string | null): number | null {
-  if (!d) return null;
-  const ms = Date.now() - new Date(d).getTime();
-  if (Number.isNaN(ms)) return null;
-  return Math.floor(ms / 86400000);
-}
-
 function tipoLabel(c: CarteiraCliente): string {
   if (c.em_familia_papelito) return "Família";
   if (c.em_pdv_perfeito) return "PDV Perfeito";
   if ((c.tier ?? "").toLowerCase() === "a") return "Distribuidor";
-  return "Lojista";
+  if (c.tipo === "distribuidor") return "Distribuidor";
+  if (c.tipo === "lojista") return "Lojista";
+  return "—";
 }
 
 function ageColor(d: number | null): string {
   if (d == null) return "text-gray-faint";
   if (d <= 7) return "text-gray-text";
-  if (d <= 14) return "text-warn";
+  if (d <= 30) return "text-warn";
   return "text-bad";
 }
 
@@ -46,6 +45,21 @@ const SCORE_TEXT: Record<string, string> = {
   D: "text-bad",
   E: "text-bad",
 };
+
+function yoyVariation(c: CarteiraCliente): { pct: number; sign: 1 | -1 | 0 } | null {
+  const prev = c.faturamento_12m_anterior;
+  const cur = c.faturamento_12m;
+  if (!prev || prev <= 0) return null;
+  const delta = (cur - prev) / prev;
+  const sign = delta > 0.01 ? 1 : delta < -0.01 ? -1 : 0;
+  return { pct: Math.round(delta * 100), sign };
+}
+
+function yoyColor(sign: 1 | -1 | 0): string {
+  if (sign === 1) return "text-good";
+  if (sign === -1) return "text-bad";
+  return "text-gray-text";
+}
 
 export function ClientList({
   rows,
@@ -58,7 +72,6 @@ export function ClientList({
   const allChecked = rows.length > 0 && rows.every((r) => selected.has(r.id));
 
   function onRowClick(e: React.MouseEvent, id: string) {
-    // Não navega se o clique veio do checkbox
     const target = e.target as HTMLElement;
     if (target.closest("input[type='checkbox']")) return;
     navigate(`/cliente/${id}`);
@@ -81,38 +94,45 @@ export function ClientList({
             <Th>Saúde</Th>
             <Th className="min-w-[180px]">Cliente</Th>
             <Th>Tipo</Th>
-            <Th>RFV</Th>
-            <Th>ATM% ano</Th>
-            <Th>Histórico</Th>
+            <Th className="text-right">RFV</Th>
+            <Th className="text-right">YoY</Th>
+            <Th className="text-right">Pedidos 12m</Th>
             <Th className="text-right">Fat. 12m</Th>
-            <Th>Meta Q</Th>
-            <Th className="text-right">Últ. compra</Th>
-            <Th className="text-right">Vendedores</Th>
+            <Th className="text-right">Ticket méd.</Th>
+            <Th className="text-right">Sem compra</Th>
+            <Th>Vendedor</Th>
             <Th className="text-center">Camp.</Th>
-            <Th className="text-right">Fin.</Th>
-            <Th className="min-w-[160px]">Próxima ação IA</Th>
+            <Th className="text-right">Vencido</Th>
+            <Th className="text-right">Limite %</Th>
+            <Th className="text-center">Fin.</Th>
+            <Th className="min-w-[140px]">Próxima ação IA</Th>
           </tr>
         </thead>
 
         <tbody>
-          {loading && <LoadingRow colSpan={14} />}
+          {loading && <LoadingRow colSpan={16} />}
           {!loading && rows.length === 0 && (
-            <EmptyRow colSpan={14} message="Nenhum cliente encontrado" />
+            <EmptyRow colSpan={16} message="Nenhum cliente encontrado" />
           )}
           {!loading &&
             rows.map((c) => {
               const status = saudeToStatus(c.saude);
-              const dias = diasDesde(c.ultima_compra);
+              const dias = c.dias_sem_compra;
               const isSel = selected.has(c.id);
               const score = (c.score_pagamento ?? "").toUpperCase();
               const hasCampaign = c.em_familia_papelito || c.em_pdv_perfeito;
+              const yoy = yoyVariation(c);
+              const venc = c.total_vencido;
+              const limPct = c.limite_pct_utilizado;
+              const acordo = c.tem_acordo_ativo;
+
               return (
                 <tr
                   key={c.id}
                   onClick={(e) => onRowClick(e, c.id)}
                   className={cn(
                     "border-b border-gray-line transition-colors cursor-pointer",
-                    isSel ? "bg-brand-soft/40" : "hover:bg-gray-soft"
+                    isSel ? "bg-brand-soft/40" : "hover:bg-gray-soft",
                   )}
                 >
                   <td className="px-3 py-2.5">
@@ -129,9 +149,7 @@ export function ClientList({
                   </td>
                   <td className="px-3 py-2.5">
                     <div className="flex flex-col">
-                      <span className="text-[12.5px] font-medium text-ink">
-                        {c.nome}
-                      </span>
+                      <span className="text-[12.5px] font-medium text-ink">{c.nome}</span>
                       <span className="text-[11px] text-gray-text">
                         {c.cidade ?? "—"}
                         {c.uf ? `, ${c.uf}` : ""}
@@ -141,51 +159,76 @@ export function ClientList({
                   <td className="px-3 py-2.5">
                     <Pill variant="soft">{tipoLabel(c)}</Pill>
                   </td>
-                  <td className="px-3 py-2.5 text-[12.5px] tabular text-gray-faint">
-                    —
+                  <td className="px-3 py-2.5 text-right text-[12.5px] tabular text-ink">
+                    {c.rfv_score != null ? c.rfv_score : <span className="text-gray-faint">—</span>}
                   </td>
-                  <td className="px-3 py-2.5 text-[12.5px] tabular text-gray-faint">
-                    —
+                  <td className="px-3 py-2.5 text-right text-[12.5px] tabular">
+                    {yoy ? (
+                      <span className={cn("font-medium", yoyColor(yoy.sign))}>
+                        {yoy.sign === 1 ? "+" : ""}
+                        {yoy.pct}%
+                      </span>
+                    ) : (
+                      <span className="text-gray-faint">—</span>
+                    )}
                   </td>
-                  <td className="px-3 py-2.5 text-[12.5px] tabular text-gray-faint">
-                    —
+                  <td className="px-3 py-2.5 text-right text-[12.5px] tabular text-ink">
+                    {c.qtd_pedidos_12m.toLocaleString("pt-BR")}
                   </td>
                   <td className="px-3 py-2.5 text-right text-[12.5px] tabular text-ink font-medium whitespace-nowrap">
                     {formatMoney(c.faturamento_12m)}
                   </td>
-                  <td className="px-3 py-2.5">
-                    <div className="w-[60px]">
-                      <ProgressBar value={0} variant="neutral" height={4} />
-                      <span className="text-[10px] tabular text-gray-faint mt-0.5 block">
-                        —
-                      </span>
-                    </div>
+                  <td className="px-3 py-2.5 text-right text-[12.5px] tabular text-gray-text whitespace-nowrap">
+                    {c.ticket_medio_12m > 0 ? formatMoney(c.ticket_medio_12m) : <span className="text-gray-faint">—</span>}
                   </td>
                   <td
                     className={cn(
                       "px-3 py-2.5 text-right text-[12.5px] tabular whitespace-nowrap",
-                      ageColor(dias)
+                      ageColor(dias),
                     )}
                   >
                     {dias == null ? "—" : `${dias}d`}
                   </td>
-                  <td className="px-3 py-2.5 text-right text-[12.5px] tabular text-ink">
-                    {c.vendedor_nome ? 1 : 0}
+                  <td className="px-3 py-2.5 text-[12.5px] text-ink whitespace-nowrap">
+                    {c.vendedor_nome ?? <span className="text-gray-faint">—</span>}
                   </td>
                   <td className="px-3 py-2.5 text-center">
                     {hasCampaign && (
-                      <Megaphone
-                        className="w-3.5 h-3.5 text-brand inline-block"
-                        strokeWidth={2}
-                      />
+                      <Megaphone className="w-3.5 h-3.5 text-brand inline-block" strokeWidth={2} />
                     )}
                   </td>
-                  <td className="px-3 py-2.5 text-right">
+                  <td className="px-3 py-2.5 text-right text-[12.5px] tabular whitespace-nowrap">
+                    {venc > 0 ? (
+                      <span className="inline-flex items-center gap-1 text-bad font-medium">
+                        <AlertTriangle className="w-3 h-3" strokeWidth={2.2} />
+                        {formatMoney(venc)}
+                      </span>
+                    ) : (
+                      <span className="text-gray-faint">—</span>
+                    )}
+                  </td>
+                  <td className="px-3 py-2.5">
+                    {limPct == null ? (
+                      <span className="text-gray-faint text-[12.5px]">—</span>
+                    ) : (
+                      <div className="w-[60px] ml-auto">
+                        <ProgressBar
+                          value={Math.min(Math.max(limPct, 0), 100)}
+                          variant={limPct >= 90 ? "bad" : limPct >= 70 ? "brand" : "neutral"}
+                          height={4}
+                        />
+                        <span className="text-[10px] tabular text-gray-text mt-0.5 block text-right">
+                          {Math.round(limPct)}%
+                        </span>
+                      </div>
+                    )}
+                  </td>
+                  <td className="px-3 py-2.5 text-center">
                     {score ? (
                       <span
                         className={cn(
-                          "text-[12.5px] tabular font-medium",
-                          SCORE_TEXT[score] ?? "text-gray-text"
+                          "text-[12.5px] tabular font-semibold",
+                          SCORE_TEXT[score] ?? "text-gray-text",
                         )}
                       >
                         {score}
@@ -195,13 +238,17 @@ export function ClientList({
                     )}
                   </td>
                   <td className="px-3 py-2.5">
-                    <span className="flex items-center gap-1.5 text-gray-faint text-[12.5px]">
-                      <Sparkles
-                        className="w-3 h-3 text-gray-faint flex-shrink-0"
-                        strokeWidth={2}
-                      />
-                      —
-                    </span>
+                    {acordo ? (
+                      <span className="flex items-center gap-1.5 text-good text-[12px]">
+                        <Handshake className="w-3.5 h-3.5 flex-shrink-0" strokeWidth={2} />
+                        Acordo ativo
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-1.5 text-gray-faint text-[12.5px]">
+                        <Sparkles className="w-3 h-3 flex-shrink-0" strokeWidth={2} />
+                        —
+                      </span>
+                    )}
                   </td>
                 </tr>
               );
@@ -220,9 +267,7 @@ function Th({
   className?: string;
 }) {
   return (
-    <th
-      className={cn("px-3 py-2.5 text-left label-caps text-gray-text", className)}
-    >
+    <th className={cn("px-3 py-2.5 text-left label-caps text-gray-text", className)}>
       {children}
     </th>
   );

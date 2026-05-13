@@ -1,7 +1,7 @@
 import { Chip } from "@/components/common/Chip";
 import type { CarteiraCliente } from "../types";
 
-export type PreFilter = "todos" | "em_queda" | "sem_contato" | "em_campanha" | "tier_a";
+export type PreFilter = "todos" | "em_queda" | "sem_contato" | "em_campanha";
 
 export type PreFilterChipsProps = {
   active: PreFilter;
@@ -20,17 +20,15 @@ function diasDesde(d: string | null): number | null {
 export function PreFilterChips({ active, onChange, rows, total }: PreFilterChipsProps) {
   // Contagens são aproximações da página atual (paginada). Para contagens
   // globais precisaríamos de queries dedicadas — futuro hook.
-  const emQueda = rows.filter((r) => r.saude === "em_risco" || r.saude === "inadimplente").length;
-  const semContato = rows.filter((r) => (diasDesde(r.ultima_compra) ?? 0) >= 30).length;
+  const emQueda = rows.filter((r) => r.saude === "em_risco" || r.saude === "atencao").length;
+  const semContato = rows.filter((r) => (diasDesde(r.data_ultima_compra) ?? 0) >= 30).length;
   const emCampanha = rows.filter((r) => r.em_familia_papelito || r.em_pdv_perfeito).length;
-  const tierA = rows.filter((r) => (r.tier ?? "").toLowerCase() === "a").length;
 
   const items: { id: PreFilter; label: string; count: number }[] = [
     { id: "todos", label: "Todos", count: total },
     { id: "em_queda", label: "Em queda", count: emQueda },
     { id: "sem_contato", label: "Sem contato 30d+", count: semContato },
     { id: "em_campanha", label: "Em campanha", count: emCampanha },
-    { id: "tier_a", label: "Tier A", count: tierA },
   ];
 
   return (

@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
-import { Bell, Command, Menu, Search, ShieldCheck, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Bell, Menu, Search, ShieldCheck, X } from "lucide-react";
 import { Avatar } from "@/components/common/Avatar";
 import { ProgressBar } from "@/components/common/ProgressBar";
+import { GlobalSearch } from "@/features/shared/search";
 
 export type TopBarProps = {
   userName: string;
@@ -15,13 +16,20 @@ export type TopBarProps = {
 
 export function TopBar({ userName, userRole, onOpenMenu, metaMonth = 87 }: TopBarProps) {
   const [searchOpen, setSearchOpen] = useState(false);
+  const desktopSearchRef = useRef<HTMLDivElement>(null);
 
-  // Atalho ⌘K / Ctrl+K (placeholder visual — não dispara nenhuma ação real ainda)
+  // ⌘K / Ctrl+K: desktop foca o input central; mobile abre o overlay.
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
-        setSearchOpen((v) => !v);
+        const isDesktop = window.matchMedia("(min-width: 768px)").matches;
+        if (isDesktop) {
+          const input = desktopSearchRef.current?.querySelector("input");
+          input?.focus();
+        } else {
+          setSearchOpen(true);
+        }
       }
     }
     window.addEventListener("keydown", onKey);
@@ -57,29 +65,16 @@ export function TopBar({ userName, userRole, onOpenMenu, metaMonth = 87 }: TopBa
       </div>
 
       {/* Centro: busca (md+) */}
-      <div className="hidden md:flex relative items-center flex-1 max-w-[320px]">
-        <Search className="absolute left-3 w-4 h-4 text-gray-faint" strokeWidth={1.8} />
-        <input
-          type="search"
-          placeholder="Buscar cliente, pedido, vendedor… ou perguntar"
-          className="w-full pl-9 pr-14 py-1.5 bg-gray-soft border border-transparent rounded-md text-[13px] placeholder:text-gray-faint focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent transition-all"
-        />
-        <div className="absolute right-3 flex items-center gap-0.5 px-1.5 py-0.5 bg-white border border-gray-line rounded text-[10px] text-gray-text font-medium">
-          <Command className="w-2.5 h-2.5" strokeWidth={2} />
-          <span>K</span>
-        </div>
+      <div ref={desktopSearchRef} className="hidden md:block flex-1 max-w-[320px]">
+        <GlobalSearch showShortcut />
       </div>
 
-      {/* Busca overlay mobile (ativada via ⌘K) */}
+      {/* Busca overlay mobile (ativada via ⌘K ou ícone) */}
       {searchOpen && (
         <div className="md:hidden absolute left-0 right-0 top-0 h-14 bg-paper border-b border-gray-line flex items-center px-4 gap-2 z-30">
-          <Search className="w-4 h-4 text-gray-faint" strokeWidth={1.8} />
-          <input
-            autoFocus
-            type="search"
-            placeholder="Buscar..."
-            className="flex-1 bg-transparent text-[13px] focus:outline-none placeholder:text-gray-faint"
-          />
+          <div className="flex-1">
+            <GlobalSearch autoFocus onClose={() => setSearchOpen(false)} />
+          </div>
           <button
             type="button"
             onClick={() => setSearchOpen(false)}

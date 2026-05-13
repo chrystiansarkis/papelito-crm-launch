@@ -1,6 +1,6 @@
 // Mitigates: A01 (papeis vêm de useCurrentUser; filtragem por papel é defesa em
 // profundidade — a fonte de verdade continua sendo RLS no banco)
-import { NavLink } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
 import {
   BarChart3,
   Home,
@@ -36,6 +36,11 @@ export type SidebarProps = {
 };
 
 export function Sidebar({ items, onNavigate }: SidebarProps) {
+  // Preserva o query string entre navegações de sidebar — os filtros globais
+  // vivem na URL (?vendedor=X&uf=Y), então trocar /carteira → /pedidos deve
+  // manter o recorte.
+  const location = useLocation();
+
   return (
     <aside className="w-[220px] h-full bg-paper border-r border-gray-line flex flex-col">
       <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
@@ -45,7 +50,7 @@ export function Sidebar({ items, onNavigate }: SidebarProps) {
               <div className="h-px bg-gray-line my-2" />
             )}
             <NavLink
-              to={item.to}
+              to={{ pathname: item.to, search: location.search }}
               end={item.to === "/"}
               onClick={onNavigate}
               className={({ isActive }) =>

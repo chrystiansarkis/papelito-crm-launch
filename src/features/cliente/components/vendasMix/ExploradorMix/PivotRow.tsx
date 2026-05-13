@@ -1,7 +1,7 @@
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { ObservacoesPopover } from "./ObservacoesPopover";
 import { CelulaStacked } from "./CelulaStacked";
-import { colorVs2025 } from "../../../lib/vendasMixPivot";
+import { alertaVs2025, corPillSemCompra, type AlertaCor, type PillSemCompraTone } from "../../../lib/vendasMixTendencia";
 import type { ColunaPivot, LinhaPivot, MetricaValores } from "../../../lib/vendasMixPivot";
 import type { MixMetrica } from "../../../types";
 import type { MixColumnId } from "./columns";
@@ -13,11 +13,17 @@ function fmtRsCompact(v: number): string {
   return `R$ ${v.toFixed(0)}`;
 }
 
+const SEM_COMPRA_TONE: Record<PillSemCompraTone, string> = {
+  soft:   "bg-gray-soft text-gray-faint",
+  normal: "bg-gray-soft text-gray-text",
+  warn:   "bg-amber-50 text-amber-700",
+  alert:  "bg-red-50 text-red-700",
+  lost:   "bg-red-100 text-red-800",
+};
+
 function pillDias(d: number | null): { tone: string; label: string } {
-  if (d == null) return { tone: "bg-gray-soft text-gray-faint", label: "nunca" };
-  if (d <= 30) return { tone: "bg-emerald-50 text-emerald-700", label: `${d}d` };
-  if (d <= 60) return { tone: "bg-amber-50 text-amber-700", label: `${d}d` };
-  return { tone: "bg-red-50 text-red-700", label: `${d}d` };
+  const tone = SEM_COMPRA_TONE[corPillSemCompra(d)];
+  return { tone, label: d == null ? "nunca" : `${d}d` };
 }
 
 const MES_PT = ["jan","fev","mar","abr","mai","jun","jul","ago","set","out","nov","dez"];
@@ -31,11 +37,22 @@ function fmtUltimaCompra(iso: string | null): string {
   return `${d}/${MES_PT[idx]}/${y.slice(2)}`;
 }
 
-const VS_TONE: Record<"verde" | "ambar" | "vermelho" | "cinza", string> = {
-  verde: "bg-emerald-50 text-emerald-700",
-  ambar: "bg-amber-50 text-amber-700",
-  vermelho: "bg-red-50 text-red-700",
-  cinza: "bg-gray-soft text-gray-faint",
+const VS_TONE: Record<AlertaCor, string> = {
+  "green-strong": "bg-emerald-100 text-emerald-800",
+  green:          "bg-emerald-50 text-emerald-700",
+  gray:           "bg-gray-soft text-gray-faint",
+  "red-soft":     "bg-red-50 text-red-700",
+  red:            "bg-red-100 text-red-800",
+  "red-strong":   "bg-red-200 text-red-900",
+  blue:           "bg-blue-50 text-blue-700",
+};
+
+// Cor da bolinha por grupo pai (Sprint 2.6 Bloco 2).
+const BOLINHA_GRUPO: Record<string, string> = {
+  papeis:   "bg-[#F5C518]",
+  filtros:  "bg-[#22A87E]",
+  piteiras: "bg-[#A04848]",
+  outros:   "bg-[#6B6B6B]",
 };
 
 export function PivotRow({
@@ -50,6 +67,7 @@ export function PivotRow({
   onSelect,
   clienteId,
   variant = "normal",
+  showStickyShadow = false,
 }: {
   linha: LinhaPivot;
   colunas: ColunaPivot[];
@@ -62,20 +80,50 @@ export function PivotRow({
   onSelect?: () => void;
   clienteId: string;
   variant?: "normal" | "total" | "media_tier";
+  showStickyShadow?: boolean;
 }) {
-  const pad = (linha.nivel - 1) * 14;
   const dias = pillDias(linha.diasSemCompra);
   const isSku = linha.scope === "sku";
   const metricaPrim: MixMetrica = metricas[0] ?? "rs";
+  const isPai = linha.nivel === 1 && linha.scope === "grupo_pai";
+  const isFilho = linha.nivel === 2;
+  const isSkuRow = linha.nivel === 3;
+
+  // Hierarquia visual (Bloco 2). Cada linha define seu próprio bg opaco
+  // pra que a sticky column não vaze conteúdo por trás.
+  const stickyBg =
+    variant === "total"     ? "bg-paper" :
+    variant === "media_tier" ? "bg-[#F4F2EC]" :
+    selecionado              ? "bg-amber-50" :
+    isPai                    ? "bg-[#F0EDE6]" :
+    "bg-paper";
 
   const baseCls =
     variant === "total"
-      ? "bg-white font-medium text-ink border-t-2 border-ink"
+      ? "font-medium text-ink border-t-2 border-ink"
       : variant === "media_tier"
-        ? "bg-[#F4F2EC] text-ink-soft italic"
-        : selecionado
-          ? "bg-amber-50/60"
-          : "hover:bg-gray-soft/50";
+        ? "text-ink-soft italic"
+        : isPai
+          ? "border-b border-gray-line"
+          : selecionado
+            ? ""
+            : "hover:bg-gray-soft/40";
+
+  // Tipografia por nível
+  const labelCls = isPai
+    ? "text-[14px] font-bold text-ink"
+    : isFilho
+      ? "text-[13px] font-medium text-ink"
+      : isSkuRow
+        ? "text-[12px] font-normal text-ink-soft"
+        : "text-sm";
+
+  // Padding por nível (Bloco 2): pai 12px, filho 36px, sku 60px.
+  // Total e media_tier usam 12px.
+  const stickyPaddingLeft =
+    variant === "media_tier" || variant === "total"
+      ? 12
+      : isPai ? 12 : isFilho ? 36 : isSkuRow ? 60 : 12;
 
   function renderMeta(id: MixColumnId) {
     if (id === "total") {
@@ -141,22 +189,37 @@ export function PivotRow({
   }
 
   return (
-    <tr className={`text-sm ${baseCls} cursor-pointer`} onClick={onSelect}>
-      <td className="px-2 py-1.5 sticky left-0 bg-inherit" style={{ paddingLeft: 8 + pad }}>
+    <tr className={`${baseCls} cursor-pointer`} onClick={onSelect}>
+      <td
+        className={`py-1.5 pr-2 sticky left-0 z-10 ${stickyBg} ${
+          showStickyShadow ? "shadow-[2px_0_4px_rgba(0,0,0,0.06)]" : ""
+        }`}
+        style={{ paddingLeft: stickyPaddingLeft }}
+      >
         <div className="flex items-center gap-1.5">
           {expandivel ? (
             <button
               onClick={(e) => { e.stopPropagation(); onToggleExpand?.(); }}
-              className="text-gray-faint hover:text-ink"
+              className="text-gray-faint hover:text-ink shrink-0"
+              aria-label={expandido ? "Recolher" : "Expandir"}
             >
-              {expandido ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+              <ChevronRight
+                size={12}
+                className={`transition-transform ${expandido ? "rotate-90" : ""}`}
+              />
+              {/* manter ChevronDown importado pra evitar warnings de tree-shake do bundler local */}
+              <span className="hidden"><ChevronDown size={0} /></span>
             </button>
           ) : (
-            <span className="w-3" />
+            <span className="w-3 shrink-0" />
           )}
-          <span className={`truncate ${linha.nivel === 1 && variant !== "media_tier" ? "text-ink font-medium" : ""}`}>
-            {linha.label}
-          </span>
+          {isPai && (
+            <span
+              className={`w-2 h-2 rounded-full shrink-0 ${BOLINHA_GRUPO[linha.scopeValue] ?? BOLINHA_GRUPO.outros}`}
+              aria-hidden
+            />
+          )}
+          <span className={`truncate ${labelCls}`}>{linha.label}</span>
         </div>
       </td>
       {colunas.map((c) => {

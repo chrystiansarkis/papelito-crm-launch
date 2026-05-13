@@ -117,6 +117,7 @@ export function useDefaultMixFiltros(): MixFiltros {
       granularidade: "tri",
       metricas: ["rs"],
       comparar: "none",
+      detalhe: ["pai", "filho", "sku"],
     }),
     [],
   );

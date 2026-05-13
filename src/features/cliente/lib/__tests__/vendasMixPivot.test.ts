@@ -23,6 +23,7 @@ const baseFiltros: MixFiltros = {
   granularidade: "ano",
   metricas: ["rs"],
   comparar: "none",
+  detalhe: ["pai", "filho", "sku"],
 };
 
 describe("expandPeriodos", () => {

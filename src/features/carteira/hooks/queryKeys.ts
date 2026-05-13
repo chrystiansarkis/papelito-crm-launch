@@ -5,4 +5,6 @@ export const carteiraKeys = {
   kpis: () => [...carteiraKeys.all, "kpis"] as const,
   vendedores: () => [...carteiraKeys.all, "vendedores"] as const,
   lista: (filtros: CarteiraFiltro) => [...carteiraKeys.all, "lista", filtros] as const,
+  kpiClientes: (filtros: CarteiraFiltro) =>
+    [...carteiraKeys.all, "kpiClientes", filtros] as const,
 };

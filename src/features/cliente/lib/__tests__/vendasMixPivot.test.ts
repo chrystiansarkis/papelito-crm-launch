@@ -54,9 +54,9 @@ describe("buildRows", () => {
   it("agrega no nível pai colapsado", () => {
     const { rows, total } = buildRows(vendas, baseFiltros, new Set());
     expect(rows).toHaveLength(2); // papeis + filtros
-    expect(rows.find((r) => r.key === "papeis")?.total).toBe(350);
-    expect(rows.find((r) => r.key === "filtros")?.total).toBe(80);
-    expect(total.total).toBe(430);
+    expect(rows.find((r) => r.key === "papeis")?.total.rs).toBe(350);
+    expect(rows.find((r) => r.key === "filtros")?.total.rs).toBe(80);
+    expect(total.total.rs).toBe(430);
   });
   it("expande filhos quando pai está em expandidos", () => {
     const { rows } = buildRows(vendas, baseFiltros, new Set(["papeis"]));
@@ -65,7 +65,7 @@ describe("buildRows", () => {
   });
   it("normaliza pra % quando metrica=pct", () => {
     const { total } = buildRows(vendas, { ...baseFiltros, metricas: ["pct"] }, new Set());
-    expect(total.total).toBe(100);
+    expect(total.total.pct).toBe(100);
   });
 });
 

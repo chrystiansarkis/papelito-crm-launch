@@ -217,6 +217,7 @@ export type ObservacaoProduto = {
 export type MixGranularidade = "ano" | "tri" | "mes";
 export type MixMetrica = "rs" | "qtd" | "pct";
 export type MixComparar = "none" | "media" | "anterior";
+export type MixDetalheNivel = "pai" | "filho" | "sku";
 
 export type MixFiltros = {
   // Chaves: "2025" | "2025-T1" | "2025-01"
@@ -226,6 +227,9 @@ export type MixFiltros = {
   // Métrica primária = metricas[0] (usada por sort, tendência, vs2025, gráfico).
   metricas: MixMetrica[];
   comparar: MixComparar;
+  // Sprint 2.6c: quais níveis exibir na pivot. Default ["pai","filho","sku"].
+  // Não persiste — sempre arranca com 3 níveis ao trocar de cliente.
+  detalhe: MixDetalheNivel[];
 };
 
 // Linha de public.vw_mix_medio_por_tier_e_grupo_pai.

@@ -40,6 +40,10 @@ export type LinhaPivot = {
   diasSemCompra: number | null;
   tend2026: MetricaValores | null;
   vs2025: { rs: number | null; qtd: number | null } | null;
+  // Brutos pra Bloco 8 alertaVs2025 — necessários pra distinguir
+  // "ambos zero" de "queda 100%" e "novo cliente".
+  fat2025Bruto: { rs: number; qtd: number };
+  fat2026Bruto: { rs: number; qtd: number };
   ticketMedio12m: number | null; // R$/un, só nivel SKU
 };
 

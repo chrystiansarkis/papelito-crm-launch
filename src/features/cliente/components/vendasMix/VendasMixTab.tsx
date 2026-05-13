@@ -26,7 +26,11 @@ export function VendasMixTab({
 
   return (
     <div className="flex flex-col gap-4">
-      <FaturamentoAnualCard kpi={ficha.kpi.data ?? null} isLoading={ficha.kpi.isPending} />
+      <FaturamentoAnualCard
+        kpi={ficha.kpi.data ?? null}
+        vendasMensais={ficha.vendasMensais.data ?? []}
+        isLoading={ficha.kpi.isPending}
+      />
       <ExploradorMix
         clienteId={clienteId}
         vendas={mix.vendasLong.data ?? []}

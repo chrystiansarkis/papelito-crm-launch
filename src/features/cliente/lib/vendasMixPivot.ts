@@ -45,6 +45,10 @@ export type LinhaPivot = {
   fat2025Bruto: { rs: number; qtd: number };
   fat2026Bruto: { rs: number; qtd: number };
   ticketMedio12m: number | null; // R$/un, só nivel SKU
+  // Sprint 2.6c — janelas rolling 12m (independem do filtro de período).
+  venda12m: MetricaValores;
+  venda12mAnterior: MetricaValores;
+  cresc12m: { rs: number | null; qtd: number | null };
 };
 
 export type MixSort = {

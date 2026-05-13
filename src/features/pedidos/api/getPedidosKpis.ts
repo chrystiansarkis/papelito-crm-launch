@@ -49,7 +49,7 @@ export async function getPedidosKpis(filtros: PedidoFiltro): Promise<PedidosKpis
     base().select("*", { count: "exact", head: true }) as unknown as Filtered,
     safe,
   );
-  const { count: total, error: errTotal } = (await totalQuery) as { count: number | null; error: unknown };
+  const { count: total, error: errTotal } = (await (totalQuery as unknown as Promise<{ count: number | null; error: unknown }>));
   if (errTotal) throw errTotal as Error;
 
   // pendentes — força o filtro mesmo se o usuário tiver outro status escolhido

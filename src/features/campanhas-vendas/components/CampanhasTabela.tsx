@@ -25,7 +25,14 @@ export function CampanhasTabela({ campanhas }: { campanhas: Campanha[] }) {
         </thead>
         <tbody>
           {campanhas.map((c) => {
-            const part = c.participantes_internos.length + c.participantes_externos.length;
+            const papeisInternos =
+              (c.inclui_vendedor ? 1 : 0) +
+              (c.inclui_supervisor ? 1 : 0) +
+              (c.inclui_gerente ? 1 : 0);
+            const part =
+              papeisInternos +
+              c.papeis_contato_incluidos.length +
+              (c.inclui_cliente_pj ? c.participantes_clientes_pj.length : 0);
             return (
               <tr key={c.id} className="border-t border-gray-line hover:bg-gray-soft/50">
                 <td className="px-3 py-2">

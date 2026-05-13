@@ -7,6 +7,7 @@ import { ErrorState } from "@/components/common/ErrorState";
 import {
   BulkActionBar,
   CARTEIRA_PAGE_SIZE,
+  CarteiraKpisHeader,
   ClientList,
   GlobalBar,
   KanbanView,
@@ -16,6 +17,7 @@ import {
   ViewToggle,
   useCarteiraClientes,
   useCarteiraKpis,
+  useCarteiraKpiClientes,
   useCarteiraVendedores,
   type CarteiraCliente,
   type CarteiraFiltro,
@@ -89,10 +91,19 @@ export default function Carteira() {
   const kpisQuery = useCarteiraKpis(filtro);
   const vendedoresQuery = useCarteiraVendedores();
   const clientesQuery = useCarteiraClientes(filtro);
+  const kpiClientesQuery = useCarteiraKpiClientes(filtro);
+  const [idsFiltrados, setIdsFiltrados] = useState<Set<string> | null>(null);
 
   const total = clientesQuery.data?.total ?? 0;
   const rows = clientesQuery.data?.rows ?? [];
-  const filteredRows = useMemo(() => applyPreFilter(rows, preFilter), [rows, preFilter]);
+  const rowsAposIdFilter = useMemo(
+    () => (idsFiltrados ? rows.filter((r) => idsFiltrados.has(r.id)) : rows),
+    [rows, idsFiltrados],
+  );
+  const filteredRows = useMemo(
+    () => applyPreFilter(rowsAposIdFilter, preFilter),
+    [rowsAposIdFilter, preFilter],
+  );
 
   function clearSelection() {
     setSelected(new Set());
@@ -157,6 +168,12 @@ export default function Carteira() {
         </div>
 
         <SubFilters />
+
+        <CarteiraKpisHeader
+          rows={kpiClientesQuery.data ?? []}
+          loading={kpiClientesQuery.isPending}
+          onIdsFiltradosChange={setIdsFiltrados}
+        />
 
         <BulkActionBar selectedCount={selected.size} onClear={clearSelection} />
 

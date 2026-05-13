@@ -6,6 +6,7 @@ export { BulkActionBar } from "./components/BulkActionBar";
 export { ClientList } from "./components/ClientList";
 export { ColumnSettings } from "./components/ColumnSettings";
 export { useColumnSettings } from "./hooks/useColumnSettings";
+export { useTableSort, type SortState, type SortDirection } from "./hooks/useTableSort";
 export type { CarteiraColumnId } from "./lib/columns";
 export { KanbanView } from "./components/KanbanView";
 export { MapView } from "./components/MapView";

@@ -26,6 +26,7 @@ export function useCarteiraClientes(filtros: CarteiraFiltro) {
     queryKey: carteiraKeys.lista(filtros),
     queryFn: () => listCarteiraClientes(filtros),
     placeholderData: (prev) => prev,
+    staleTime: 5 * 60 * 1000,
   });
 }
 

@@ -7,7 +7,6 @@
 import { publicDb } from "@/lib/supabase";
 import { carteiraFiltroSchema } from "../schemas";
 import type { CarteiraCliente, CarteiraFiltro } from "../types";
-import { CARTEIRA_PAGE_SIZE } from "../types";
 
 export type ListClientesResult = {
   rows: CarteiraCliente[];
@@ -142,7 +141,7 @@ export async function listCarteiraClientes(
   const safe = carteiraFiltroSchema.parse(filtros);
   let query = publicDb
     .from("vw_carteira" as never)
-    .select("*", { count: "exact" })
+    .select("*")
     .order("faturamento_12m", { ascending: false, nullsFirst: false });
 
   if (safe.busca) {
@@ -177,13 +176,11 @@ export async function listCarteiraClientes(
       : query.eq("id", "00000000-0000-0000-0000-000000000000");
   }
 
-  const from = safe.page * CARTEIRA_PAGE_SIZE;
-  const to = (safe.page + 1) * CARTEIRA_PAGE_SIZE - 1;
-  query = query.range(from, to);
-
-  const { data, count, error } = await query;
+  // Sem paginação server-side: a Carteira lida com ~1700 clientes; sort,
+  // pre-filter e paginação acontecem 100% client-side em Carteira.tsx.
+  const { data, error } = await query;
   if (error) throw error;
 
   const rows = ((data ?? []) as FichaRow[]).map(rowToCliente);
-  return { rows, total: count ?? 0 };
+  return { rows, total: rows.length };
 }

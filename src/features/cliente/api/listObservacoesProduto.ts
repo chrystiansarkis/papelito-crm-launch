@@ -1,5 +1,5 @@
 // Mitigates: A01 (RLS via tabela), A05 (clienteId/scope validados pelo caller).
-import { publicDb } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase";
 import type { ObservacaoProduto, ObsProdutoScope } from "../types";
 
 export async function listObservacoesProduto(
@@ -7,8 +7,7 @@ export async function listObservacoesProduto(
   scope: ObsProdutoScope,
   scopeValue: string,
 ): Promise<ObservacaoProduto[]> {
-  const { data, error } = await publicDb
-    .schema("crm")
+  const { data, error } = await supabase
     .from("observacoes_produto_cliente" as never)
     .select("id,cliente_id,scope,scope_value,texto,fixada,autor_id,criado_em,atualizado_em")
     .eq("cliente_id", clienteId)

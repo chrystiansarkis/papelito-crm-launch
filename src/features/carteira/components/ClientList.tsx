@@ -13,6 +13,11 @@ import { LoadingRow, EmptyRow } from "@/components/common/LoadingRow";
 import { formatMoney, formatDateLong } from "@/lib/format";
 import { saudeToStatus } from "../lib/mapSaude";
 import type { CarteiraCliente, ClienteKpi } from "../types";
+import {
+  CARTEIRA_COLUMNS,
+  COLUMN_LABEL,
+  type CarteiraColumnId,
+} from "../lib/columns";
 
 export type ClientListProps = {
   rows: CarteiraCliente[];
@@ -23,6 +28,9 @@ export type ClientListProps = {
   // Mapa cliente_id → KPI (vw_carteira_clientes_kpi). Usado para colunas
   // "Última venda" e "Último atendimento" sem precisar de query extra.
   kpiByClienteId?: Map<string, ClienteKpi>;
+  // Lista (em ordem) das colunas a renderizar. Sempre inclui "cliente"
+  // como primeira. Default = todas as colunas em ordem padrão.
+  visibleColumns?: CarteiraColumnId[];
 };
 
 function tipoLabel(c: CarteiraCliente): string {
@@ -64,6 +72,255 @@ function yoyColor(sign: 1 | -1 | 0): string {
   return "text-gray-text";
 }
 
+type CellCtx = {
+  kpiByClienteId?: Map<string, ClienteKpi>;
+};
+
+type ColumnRenderer = {
+  header: () => JSX.Element;
+  cell: (c: CarteiraCliente, ctx: CellCtx) => JSX.Element;
+};
+
+const COLUMN_RENDERERS: Record<CarteiraColumnId, ColumnRenderer> = {
+  cliente: {
+    header: () => <Th className="min-w-[180px]">Cliente</Th>,
+    cell: (c) => (
+      <td className="px-3 py-2.5">
+        <div className="flex flex-col">
+          <span className="text-[12.5px] font-medium text-ink">{c.nome}</span>
+          <span className="text-[11px] text-gray-text">
+            {c.cidade ?? "—"}
+            {c.uf ? `, ${c.uf}` : ""}
+          </span>
+        </div>
+      </td>
+    ),
+  },
+  saude: {
+    header: () => <Th>Saúde</Th>,
+    cell: (c) => (
+      <td className="px-3 py-2.5">
+        <StatusDot status={saudeToStatus(c.saude)} />
+      </td>
+    ),
+  },
+  tipo: {
+    header: () => <Th>Tipo</Th>,
+    cell: (c) => (
+      <td className="px-3 py-2.5">
+        <Pill variant="soft">{tipoLabel(c)}</Pill>
+      </td>
+    ),
+  },
+  rfv: {
+    header: () => <Th className="text-right">RFV</Th>,
+    cell: (c) => (
+      <td className="px-3 py-2.5 text-right text-[12.5px] tabular text-ink">
+        {c.rfv_score != null ? c.rfv_score : <span className="text-gray-faint">—</span>}
+      </td>
+    ),
+  },
+  yoy: {
+    header: () => <Th className="text-right">YoY</Th>,
+    cell: (c) => {
+      const yoy = yoyVariation(c);
+      return (
+        <td className="px-3 py-2.5 text-right text-[12.5px] tabular">
+          {yoy ? (
+            <span className={cn("font-medium", yoyColor(yoy.sign))}>
+              {yoy.sign === 1 ? "+" : ""}
+              {yoy.pct}%
+            </span>
+          ) : (
+            <span className="text-gray-faint">—</span>
+          )}
+        </td>
+      );
+    },
+  },
+  pedidos_12m: {
+    header: () => <Th className="text-right">Pedidos 12m</Th>,
+    cell: (c) => (
+      <td className="px-3 py-2.5 text-right text-[12.5px] tabular text-ink">
+        {c.qtd_pedidos_12m.toLocaleString("pt-BR")}
+      </td>
+    ),
+  },
+  fat_12m: {
+    header: () => <Th className="text-right">Fat. 12m</Th>,
+    cell: (c) => (
+      <td className="px-3 py-2.5 text-right text-[12.5px] tabular text-ink font-medium whitespace-nowrap">
+        {formatMoney(c.faturamento_12m)}
+      </td>
+    ),
+  },
+  ticket_medio: {
+    header: () => <Th className="text-right">Ticket méd.</Th>,
+    cell: (c) => (
+      <td className="px-3 py-2.5 text-right text-[12.5px] tabular text-gray-text whitespace-nowrap">
+        {c.ticket_medio_12m > 0 ? (
+          formatMoney(c.ticket_medio_12m)
+        ) : (
+          <span className="text-gray-faint">—</span>
+        )}
+      </td>
+    ),
+  },
+  sem_compra: {
+    header: () => <Th className="text-right">Sem compra</Th>,
+    cell: (c) => {
+      const dias = c.dias_sem_compra;
+      return (
+        <td
+          className={cn(
+            "px-3 py-2.5 text-right text-[12.5px] tabular whitespace-nowrap",
+            ageColor(dias),
+          )}
+        >
+          {dias == null ? "—" : `${dias}d`}
+        </td>
+      );
+    },
+  },
+  ultima_venda: {
+    header: () => <Th className="text-right">Última venda</Th>,
+    cell: (c, ctx) => {
+      const kpi = ctx.kpiByClienteId?.get(c.id);
+      const ultimaVenda = kpi?.data_ultima_compra ?? c.data_ultima_compra;
+      return (
+        <td className="px-3 py-2.5 text-right text-[12.5px] tabular whitespace-nowrap">
+          {ultimaVenda ? (
+            <span className="text-ink">{formatDateLong(ultimaVenda)}</span>
+          ) : (
+            <span className="text-gray-faint">—</span>
+          )}
+        </td>
+      );
+    },
+  },
+  ultimo_atendimento: {
+    header: () => <Th className="text-right">Último atendimento</Th>,
+    cell: (c, ctx) => {
+      const kpi = ctx.kpiByClienteId?.get(c.id);
+      const ultimoAtend = kpi?.data_ultimo_atendimento ?? null;
+      return (
+        <td className="px-3 py-2.5 text-right text-[12.5px] tabular whitespace-nowrap">
+          {ultimoAtend ? (
+            <span className="text-ink">{formatDateLong(ultimoAtend)}</span>
+          ) : (
+            <span className="text-gray-faint">—</span>
+          )}
+        </td>
+      );
+    },
+  },
+  vendedor: {
+    header: () => <Th>Vendedor</Th>,
+    cell: (c) => (
+      <td className="px-3 py-2.5 text-[12.5px] text-ink whitespace-nowrap">
+        {c.vendedor_nome ?? <span className="text-gray-faint">—</span>}
+      </td>
+    ),
+  },
+  camp: {
+    header: () => <Th className="text-center">Camp.</Th>,
+    cell: (c) => {
+      const hasCampaign = c.em_familia_papelito || c.em_pdv_perfeito;
+      return (
+        <td className="px-3 py-2.5 text-center">
+          {hasCampaign && (
+            <Megaphone className="w-3.5 h-3.5 text-brand inline-block" strokeWidth={2} />
+          )}
+        </td>
+      );
+    },
+  },
+  vencido: {
+    header: () => <Th className="text-right">Vencido</Th>,
+    cell: (c) => {
+      const venc = c.total_vencido;
+      return (
+        <td className="px-3 py-2.5 text-right text-[12.5px] tabular whitespace-nowrap">
+          {venc > 0 ? (
+            <span className="inline-flex items-center gap-1 text-bad font-medium">
+              <AlertTriangle className="w-3 h-3" strokeWidth={2.2} />
+              {formatMoney(venc)}
+            </span>
+          ) : (
+            <span className="text-gray-faint">—</span>
+          )}
+        </td>
+      );
+    },
+  },
+  limite_pct: {
+    header: () => <Th className="text-right">Limite %</Th>,
+    cell: (c) => {
+      const limPct = c.limite_pct_utilizado;
+      return (
+        <td className="px-3 py-2.5">
+          {limPct == null ? (
+            <span className="text-gray-faint text-[12.5px]">—</span>
+          ) : (
+            <div className="w-[60px] ml-auto">
+              <ProgressBar
+                value={Math.min(Math.max(limPct, 0), 100)}
+                variant={limPct >= 90 ? "bad" : limPct >= 70 ? "brand" : "neutral"}
+                height={4}
+              />
+              <span className="text-[10px] tabular text-gray-text mt-0.5 block text-right">
+                {Math.round(limPct)}%
+              </span>
+            </div>
+          )}
+        </td>
+      );
+    },
+  },
+  fin: {
+    header: () => <Th className="text-center">Fin.</Th>,
+    cell: (c) => {
+      const score = (c.score_pagamento ?? "").toUpperCase();
+      return (
+        <td className="px-3 py-2.5 text-center">
+          {score ? (
+            <span
+              className={cn(
+                "text-[12.5px] tabular font-semibold",
+                SCORE_TEXT[score] ?? "text-gray-text",
+              )}
+            >
+              {score}
+            </span>
+          ) : (
+            <span className="text-gray-faint">—</span>
+          )}
+        </td>
+      );
+    },
+  },
+  proxima_acao: {
+    header: () => <Th className="min-w-[140px]">Próxima ação IA</Th>,
+    cell: (c) => (
+      <td className="px-3 py-2.5">
+        {c.tem_acordo_ativo ? (
+          <span className="flex items-center gap-1.5 text-good text-[12px]">
+            <Handshake className="w-3.5 h-3.5 flex-shrink-0" strokeWidth={2} />
+            Acordo ativo
+          </span>
+        ) : (
+          <span className="flex items-center gap-1.5 text-gray-faint text-[12.5px]">
+            <Sparkles className="w-3 h-3 flex-shrink-0" strokeWidth={2} />
+            —
+          </span>
+        )}
+      </td>
+    ),
+  },
+};
+
+const DEFAULT_VISIBLE: CarteiraColumnId[] = CARTEIRA_COLUMNS.map((c) => c.id);
+
 export function ClientList({
   rows,
   loading,
@@ -71,9 +328,13 @@ export function ClientList({
   onSelectAll,
   onSelectRow,
   kpiByClienteId,
+  visibleColumns,
 }: ClientListProps) {
   const navigate = useNavigate();
   const allChecked = rows.length > 0 && rows.every((r) => selected.has(r.id));
+  const cols = visibleColumns && visibleColumns.length > 0 ? visibleColumns : DEFAULT_VISIBLE;
+  const ctx: CellCtx = { kpiByClienteId };
+  const totalCols = cols.length + 1; // +1 = checkbox column
 
   function onRowClick(e: React.MouseEvent, id: string) {
     const target = e.target as HTMLElement;
@@ -95,46 +356,21 @@ export function ClientList({
                 aria-label="Selecionar todos"
               />
             </th>
-            <Th>Saúde</Th>
-            <Th className="min-w-[180px]">Cliente</Th>
-            <Th>Tipo</Th>
-            <Th className="text-right">RFV</Th>
-            <Th className="text-right">YoY</Th>
-            <Th className="text-right">Pedidos 12m</Th>
-            <Th className="text-right">Fat. 12m</Th>
-            <Th className="text-right">Ticket méd.</Th>
-            <Th className="text-right">Sem compra</Th>
-            <Th className="text-right">Última venda</Th>
-            <Th className="text-right">Último atendimento</Th>
-            <Th>Vendedor</Th>
-            <Th className="text-center">Camp.</Th>
-            <Th className="text-right">Vencido</Th>
-            <Th className="text-right">Limite %</Th>
-            <Th className="text-center">Fin.</Th>
-            <Th className="min-w-[140px]">Próxima ação IA</Th>
+            {cols.map((id) => {
+              const r = COLUMN_RENDERERS[id];
+              return <HeaderCell key={id} id={id} render={r.header} />;
+            })}
           </tr>
         </thead>
 
         <tbody>
-          {loading && <LoadingRow colSpan={18} />}
+          {loading && <LoadingRow colSpan={totalCols} />}
           {!loading && rows.length === 0 && (
-            <EmptyRow colSpan={18} message="Nenhum cliente encontrado" />
+            <EmptyRow colSpan={totalCols} message="Nenhum cliente encontrado" />
           )}
           {!loading &&
             rows.map((c) => {
-              const status = saudeToStatus(c.saude);
-              const dias = c.dias_sem_compra;
               const isSel = selected.has(c.id);
-              const score = (c.score_pagamento ?? "").toUpperCase();
-              const hasCampaign = c.em_familia_papelito || c.em_pdv_perfeito;
-              const yoy = yoyVariation(c);
-              const venc = c.total_vencido;
-              const limPct = c.limite_pct_utilizado;
-              const acordo = c.tem_acordo_ativo;
-              const kpi = kpiByClienteId?.get(c.id);
-              const ultimaVenda = kpi?.data_ultima_compra ?? c.data_ultima_compra;
-              const ultimoAtend = kpi?.data_ultimo_atendimento ?? null;
-
               return (
                 <tr
                   key={c.id}
@@ -153,126 +389,10 @@ export function ClientList({
                       aria-label={`Selecionar ${c.nome}`}
                     />
                   </td>
-                  <td className="px-3 py-2.5">
-                    <StatusDot status={status} />
-                  </td>
-                  <td className="px-3 py-2.5">
-                    <div className="flex flex-col">
-                      <span className="text-[12.5px] font-medium text-ink">{c.nome}</span>
-                      <span className="text-[11px] text-gray-text">
-                        {c.cidade ?? "—"}
-                        {c.uf ? `, ${c.uf}` : ""}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="px-3 py-2.5">
-                    <Pill variant="soft">{tipoLabel(c)}</Pill>
-                  </td>
-                  <td className="px-3 py-2.5 text-right text-[12.5px] tabular text-ink">
-                    {c.rfv_score != null ? c.rfv_score : <span className="text-gray-faint">—</span>}
-                  </td>
-                  <td className="px-3 py-2.5 text-right text-[12.5px] tabular">
-                    {yoy ? (
-                      <span className={cn("font-medium", yoyColor(yoy.sign))}>
-                        {yoy.sign === 1 ? "+" : ""}
-                        {yoy.pct}%
-                      </span>
-                    ) : (
-                      <span className="text-gray-faint">—</span>
-                    )}
-                  </td>
-                  <td className="px-3 py-2.5 text-right text-[12.5px] tabular text-ink">
-                    {c.qtd_pedidos_12m.toLocaleString("pt-BR")}
-                  </td>
-                  <td className="px-3 py-2.5 text-right text-[12.5px] tabular text-ink font-medium whitespace-nowrap">
-                    {formatMoney(c.faturamento_12m)}
-                  </td>
-                  <td className="px-3 py-2.5 text-right text-[12.5px] tabular text-gray-text whitespace-nowrap">
-                    {c.ticket_medio_12m > 0 ? formatMoney(c.ticket_medio_12m) : <span className="text-gray-faint">—</span>}
-                  </td>
-                  <td
-                    className={cn(
-                      "px-3 py-2.5 text-right text-[12.5px] tabular whitespace-nowrap",
-                      ageColor(dias),
-                    )}
-                  >
-                    {dias == null ? "—" : `${dias}d`}
-                  </td>
-                  <td className="px-3 py-2.5 text-right text-[12.5px] tabular whitespace-nowrap">
-                    {ultimaVenda ? (
-                      <span className="text-ink">{formatDateLong(ultimaVenda)}</span>
-                    ) : (
-                      <span className="text-gray-faint">—</span>
-                    )}
-                  </td>
-                  <td className="px-3 py-2.5 text-right text-[12.5px] tabular whitespace-nowrap">
-                    {ultimoAtend ? (
-                      <span className="text-ink">{formatDateLong(ultimoAtend)}</span>
-                    ) : (
-                      <span className="text-gray-faint">—</span>
-                    )}
-                  </td>
-                  <td className="px-3 py-2.5 text-[12.5px] text-ink whitespace-nowrap">
-                    {c.vendedor_nome ?? <span className="text-gray-faint">—</span>}
-                  </td>
-                  <td className="px-3 py-2.5 text-center">
-                    {hasCampaign && (
-                      <Megaphone className="w-3.5 h-3.5 text-brand inline-block" strokeWidth={2} />
-                    )}
-                  </td>
-                  <td className="px-3 py-2.5 text-right text-[12.5px] tabular whitespace-nowrap">
-                    {venc > 0 ? (
-                      <span className="inline-flex items-center gap-1 text-bad font-medium">
-                        <AlertTriangle className="w-3 h-3" strokeWidth={2.2} />
-                        {formatMoney(venc)}
-                      </span>
-                    ) : (
-                      <span className="text-gray-faint">—</span>
-                    )}
-                  </td>
-                  <td className="px-3 py-2.5">
-                    {limPct == null ? (
-                      <span className="text-gray-faint text-[12.5px]">—</span>
-                    ) : (
-                      <div className="w-[60px] ml-auto">
-                        <ProgressBar
-                          value={Math.min(Math.max(limPct, 0), 100)}
-                          variant={limPct >= 90 ? "bad" : limPct >= 70 ? "brand" : "neutral"}
-                          height={4}
-                        />
-                        <span className="text-[10px] tabular text-gray-text mt-0.5 block text-right">
-                          {Math.round(limPct)}%
-                        </span>
-                      </div>
-                    )}
-                  </td>
-                  <td className="px-3 py-2.5 text-center">
-                    {score ? (
-                      <span
-                        className={cn(
-                          "text-[12.5px] tabular font-semibold",
-                          SCORE_TEXT[score] ?? "text-gray-text",
-                        )}
-                      >
-                        {score}
-                      </span>
-                    ) : (
-                      <span className="text-gray-faint">—</span>
-                    )}
-                  </td>
-                  <td className="px-3 py-2.5">
-                    {acordo ? (
-                      <span className="flex items-center gap-1.5 text-good text-[12px]">
-                        <Handshake className="w-3.5 h-3.5 flex-shrink-0" strokeWidth={2} />
-                        Acordo ativo
-                      </span>
-                    ) : (
-                      <span className="flex items-center gap-1.5 text-gray-faint text-[12.5px]">
-                        <Sparkles className="w-3 h-3 flex-shrink-0" strokeWidth={2} />
-                        —
-                      </span>
-                    )}
-                  </td>
+                  {cols.map((id) => {
+                    const r = COLUMN_RENDERERS[id];
+                    return <CellWrap key={id} id={id} cliente={c} ctx={ctx} render={r.cell} />;
+                  })}
                 </tr>
               );
             })}
@@ -280,6 +400,31 @@ export function ClientList({
       </table>
     </div>
   );
+}
+
+function HeaderCell({
+  id,
+  render,
+}: {
+  id: CarteiraColumnId;
+  render: () => JSX.Element;
+}) {
+  // wrapper só pra manter a key estável; o renderer já retorna o <th>.
+  return render();
+}
+
+function CellWrap({
+  id,
+  cliente,
+  ctx,
+  render,
+}: {
+  id: CarteiraColumnId;
+  cliente: CarteiraCliente;
+  ctx: CellCtx;
+  render: (c: CarteiraCliente, ctx: CellCtx) => JSX.Element;
+}) {
+  return render(cliente, ctx);
 }
 
 function Th({

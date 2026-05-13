@@ -1,189 +1,138 @@
-# Plano — Header de KPIs interativos da Carteira
 
-## Objetivo
-Inserir, entre o título "Carteira" e a tabela existente em `src/pages/Carteira.tsx`, três linhas novas de KPIs (5 cards macro + matriz recência × grupo + 3 cards de tendência), todas clicáveis, alimentadas por `public.vw_carteira_clientes_kpi`. A tabela continua usando a fonte atual (`vw_carteira` via `useCarteiraClientes`) com TODAS as colunas e comportamentos preservados; os filtros do KPI apenas restringem o conjunto de `cliente_id` exibido.
+## Stack confirmada
 
-## Arquitetura de dados — dois datasets, um filtro
+**dnd-kit** (`@dnd-kit/core` + `@dnd-kit/sortable` + `@dnd-kit/utilities`). Já é o padrão de mercado pra esse caso, leve (~10kb gz), acessível por teclado out-of-the-box, e a API `SortableContext` + `useSortable` resolve drag vertical com snap natural — exatamente o cenário do popover. Não precisa nada além disso.
 
-```text
-vw_carteira (já existente)        vw_carteira_clientes_kpi (NOVA)
-        |                                  |
-useCarteiraClientes (paginado)    useCarteiraKpiClientes (carrega TUDO ~1700)
-        |                                  |
-   linhasTabela --------+         kpiClientes (in-memory)
-                        |                  |
-                        |          matchesFilter(c, filter)
-                        |                  |
-                        |          idsFiltrados (Set<cliente_id>)
-                        |                  |
-                        +------ AND -------+
-                                |
-                  linhasTabela.filter(l => idsFiltrados.has(l.id))
+Instalar:
+```
+bun add @dnd-kit/core @dnd-kit/sortable @dnd-kit/utilities
 ```
 
-Importante: hoje `useCarteiraClientes` é paginada (50/página, server-side). Para que o filtro por `id` funcione coerentemente, a página manda os filtros do header (vendedor/uf/tipo/etc) para AMBAS as queries; o filtro por `idsFiltrados` é aplicado client-side em cima da página atual da tabela. Isso é suficiente porque os dois datasets já compartilham os mesmos filtros estruturais e o usuário enxerga totais (tabela mostra "X visíveis de Y filtrados").
+## Modelagem do state
 
-## Estrutura de arquivos novos
-
-```text
-src/features/carteira/
-  api/
-    listKpiClientes.ts            // SELECT * FROM vw_carteira_clientes_kpi (sem paginação)
-  hooks/
-    useCarteiraKpiClientes.ts     // react-query wrapper
-  components/
-    kpis/
-      CarteiraKpisHeader.tsx      // orquestrador: 3 linhas + estado filter
-      MacroKpiCard.tsx            // card genérico das 5 colunas da linha 1
-      MatrizRecencia.tsx          // linha 2 inteira
-      CardsTendencia.tsx          // linha 3 (Crescendo / Caindo / Com vencido)
-    LimparFiltrosBtn.tsx          // botão discreto "Limpar filtros"
-  lib/
-    carteiraKpis.ts               // matchesFilter, temFiltroAtivo, agregadores
-                                  // (funções puras, testáveis)
-  types.ts                        // adicionar ClienteKpi + CarteiraFilter
-```
-
-## Modelagem
+Catálogo central de colunas vive em `src/features/carteira/lib/columns.ts`:
 
 ```ts
-// types.ts (additions)
-export type ClienteKpi = {
-  cliente_id: string;
-  nome_fantasia: string | null;
-  razao_social: string | null;
-  saude: string | null;
-  tipo: string | null;
-  tier: string | null;
-  status_cliente: string | null;
-  score_pagamento: string | null;
-  bloqueado_cobranca: string | null;
-  vendedor_responsavel_id: string | null;
-  dias_sem_compra: number | null;
-  data_ultima_compra: string | null;
-  faturamento_12m: number;
-  faturamento_ytd: number;
-  faturamento_ano_anterior: number;
-  tendencia_ano: number;
-  pct_crescimento: number | null;
-  comprou_2025: boolean;
-  comprou_2026: boolean;
-  fat_12m_papeis: number;  fat_12m_filtros: number;
-  fat_12m_piteiras: number; fat_12m_outros: number;
-  fat_2025_papeis: number; fat_2025_filtros: number;
-  fat_2025_piteiras: number; fat_2025_outros: number;
-  fat_ytd_papeis: number;  fat_ytd_filtros: number;
-  fat_ytd_piteiras: number; fat_ytd_outros: number;
-  valor_vencido: number;
-  tem_vencido: boolean;
-};
+export type CarteiraColumnId =
+  | "cliente" | "saude" | "tipo" | "rfv" | "yoy"
+  | "pedidos_12m" | "fat_12m" | "ticket_medio" | "sem_compra"
+  | "ultima_venda" | "ultimo_atendimento" | "vendedor"
+  | "camp" | "vencido" | "limite_pct" | "fin" | "proxima_acao";
 
-export type GrupoPai = 'papeis' | 'filtros' | 'piteiras' | 'outros';
-export type PeriodoGrupo = '2025' | 'ytd' | '12m';
-export type FaixaRecencia = '0-30' | '31-60' | '61-90' | '91-180' | '180+' | 'nunca';
+export const CARTEIRA_COLUMNS: { id: CarteiraColumnId; label: string; fixed?: boolean }[] = [
+  { id: "cliente", label: "Cliente", fixed: true },
+  { id: "saude", label: "Saúde" },
+  { id: "tipo", label: "Tipo" },
+  { id: "rfv", label: "RFV" },
+  { id: "yoy", label: "YoY" },
+  { id: "pedidos_12m", label: "Pedidos 12m" },
+  { id: "fat_12m", label: "Fat. 12m" },
+  { id: "ticket_medio", label: "Ticket méd." },
+  { id: "sem_compra", label: "Sem compra" },
+  { id: "ultima_venda", label: "Última venda" },
+  { id: "ultimo_atendimento", label: "Último atendimento" },
+  { id: "vendedor", label: "Vendedor" },
+  { id: "camp", label: "Camp." },
+  { id: "vencido", label: "Vencido" },
+  { id: "limite_pct", label: "Limite %" },
+  { id: "fin", label: "Fin." },
+  { id: "proxima_acao", label: "Próxima ação IA" },
+];
 
-export type CarteiraFilter = {
-  ano_compra: 'comprou_2025' | 'comprou_2026' | null;
-  grupo_pai: GrupoPai | null;
-  periodo_grupo: PeriodoGrupo | null;
-  recencia: FaixaRecencia | null;
-  tendencia: 'crescendo' | 'caindo' | null;
-  vencido: boolean;
-};
+export const DEFAULT_VISIBILITY: Record<CarteiraColumnId, boolean> =
+  Object.fromEntries(CARTEIRA_COLUMNS.map(c => [c.id, true])) as any;
+export const DEFAULT_ORDER: CarteiraColumnId[] =
+  CARTEIRA_COLUMNS.filter(c => !c.fixed).map(c => c.id);
 ```
 
-## Lógica pura — `lib/carteiraKpis.ts`
+`order` guarda apenas as colunas manipuláveis (cliente fica fora — sempre renderizada primeiro). Isso simplifica o dnd e remove qualquer chance de mover/ocultar a coluna fixa por bug.
 
-- `matchesFilter(c, f)` — copia o predicado fornecido na spec, com guards de `null`.
-- `temFiltroAtivo(f)` — qualquer dimensão != default.
-- `EMPTY_FILTER` — constante.
-- `toggleAnoCompra`, `toggleGrupoPeriodo`, `toggleRecencia`, `toggleRecenciaGrupo`, `toggleTendencia`, `toggleVencido` — helpers de toggle (clicar duas vezes limpa).
-- `agregarMacro(rows)` — devolve totais para os 5 cards (count, somas por grupo/período, tendência por grupo, desvio por grupo, com guard contra divisão por zero → `null`).
-- `agregarMatrizRecencia(rows)` — devolve as 6 faixas com `count`, `pct`, `total12m`, `por_grupo[grupo] = { valor, qtd }`.
-- `agregarTendencia(rows)` — devolve `crescendo`, `caindo`, `vencido` com `count`, `pct`, `valor`.
-- `diasDecorridosNoAno()` — base para fórmula da tendência por grupo.
+## Hook `useColumnSettings`
 
-Todas as funções são puras → testes em `__tests__/carteiraKpis.test.ts` cobrindo: predicados, toggle (idempotência), divisão por zero, lista vazia.
+`src/features/carteira/hooks/useColumnSettings.ts`:
 
-## Componentes
+- Storage key: `papelito:carteira:column-settings:chrystian`
+- Hidrata do localStorage no mount (lazy initializer no `useState`)
+- Sanitiza o payload contra `CARTEIRA_COLUMNS`: ignora ids desconhecidos e adiciona ids novos no fim do `order` (forward-compat se a gente adicionar coluna nova depois)
+- Persiste em `useEffect` com `setTimeout` debounce ~200ms, limpa no cleanup
+- API exposta:
+  ```ts
+  {
+    visibility: Record<CarteiraColumnId, boolean>,
+    order: CarteiraColumnId[],         // sem "cliente"
+    visibleColumns: CarteiraColumnId[], // ["cliente", ...order.filter(visible)]
+    toggle(id): void,
+    reorder(from: CarteiraColumnId, to: CarteiraColumnId): void,
+    reset(): void,
+  }
+  ```
 
-### `CarteiraKpisHeader.tsx`
-- Estado local: `const [filter, setFilter] = useState<CarteiraFilter>(EMPTY_FILTER)`.
-- Recebe `kpiClientes: ClienteKpi[]` (já com filtros do header aplicados upstream).
-- `kpiClientesFiltrados = useMemo(...)`, `idsFiltrados = useMemo(new Set(...))`.
-- Expõe via callback prop `onFilterChange(idsFiltrados | null, ativo)` para a página.
-- Renderiza as 3 linhas. Cada elemento clicável recebe `active` boolean → aplica classes `bg-info / text-info / ring-2 ring-info`.
-- Inclui botão "Limpar filtros" no header da seção quando `temFiltroAtivo`.
+## Componente `ColumnSettings`
 
-### `MacroKpiCard.tsx`
-- Props: `label`, `value`, `subItems: { key, label, value, active, onClick }[]`, `valueColor?`.
-- 5 instâncias na linha 1 conforme spec.
+`src/features/carteira/components/ColumnSettings.tsx`:
 
-### `MatrizRecencia.tsx`
-- Grid 8 colunas (sm: scroll horizontal).
-- 6 linhas + cores definidas. Linha "Nunca compraram" mostra "—" nas colunas 4–8.
-- Clique na faixa (cols 1-4) → `recencia`. Clique em célula de grupo (cols 5-8) → `recencia + grupo_pai + periodo_grupo='12m'`.
+- shadcn `Popover` (já existe em `src/components/ui/popover.tsx`), `PopoverContent` align="end" sideOffset=8 width 280px
+- Trigger: botão estilo igual aos outros do header (`inline-flex items-center gap-1.5 px-3 py-2 text-[12.5px] ...`) com `Columns3` da lucide
+- Conteúdo:
+  - Header "Colunas da tabela" (`text-xs font-semibold text-gray-text uppercase tracking-wide`)
+  - Linha fixa CLIENTE no topo: slot vazio do tamanho do grip + Checkbox (shadcn) `disabled checked` envolto em `Tooltip` "Coluna principal"
+  - `<DndContext>` + `<SortableContext items={order} strategy={verticalListSortingStrategy}>` com cada item via `SortableItem` interno (usa `useSortable`)
+  - `SortableItem`: `flex items-center gap-2 py-2 px-2 rounded hover:bg-gray-soft`, `GripVertical` (h-3.5 w-3.5 text-gray-faint, group-hover:text-gray-text, cursor-grab) + Checkbox + label (text-sm text-ink). Aplica `transform`/`transition` do dnd-kit. Durante drag (`isDragging`), `bg-white shadow-md`.
+  - Footer: `border-t pt-2 mt-2 flex items-center justify-between`. Esquerda contador `{visibleCount} de {totalCount} visíveis`. Direita botão "Resetar pro padrão" (`text-xs text-gray-text underline-offset-2 hover:underline hover:text-ink`)
+- `onDragEnd` chama `reorder(active.id, over.id)`
 
-### `CardsTendencia.tsx`
-- 3 cards (Crescendo / Caindo / Com vencido) com ícones `TrendingUp`, `TrendingDown`, `AlertTriangle` do lucide-react.
+## Integração com a tabela
 
-### `LimparFiltrosBtn.tsx`
-- Botão `<button>` com `<X />` + "Limpar filtros". Posicionado à direita do `<h1>Carteira</h1>`.
+`ClientList.tsx` recebe nova prop `visibleColumns: CarteiraColumnId[]` e renderiza `<th>`/`<td>` em loop sobre essa lista, num único registry:
 
-## Integração em `src/pages/Carteira.tsx`
+```ts
+const COLUMN_RENDERERS: Record<CarteiraColumnId, {
+  header: () => JSX.Element;
+  cell: (c, ctx) => JSX.Element;
+}> = { ... };
+```
+
+Cada entrada do registry contém o `<th>` e o `<td>` atuais (o conteúdo de cada célula que já existe hoje, só extraído pra função). Isso elimina a duplicação atual de 17 `<th>`/`<td>` hardcoded e desbloqueia o reorder/hide sem `if`s espalhados. `ctx` carrega o necessário (`kpiByClienteId`, helpers `tipoLabel`, `yoyVariation`, `formatMoney`, etc).
+
+A coluna do checkbox de seleção (primeira) e a coluna `cliente` continuam sempre presentes — checkbox antes, cliente depois — e o loop começa depois delas. O `colSpan` do `LoadingRow`/`EmptyRow` passa a ser `visibleColumns.length + 1` (checkbox).
+
+## Render em `Carteira.tsx`
 
 ```tsx
-const kpiQuery = useCarteiraKpiClientes(filtroHeader); // mesmos filtros de gf
-const [idsFiltrados, setIdsFiltrados] = useState<Set<string> | null>(null);
-
-const linhasTabela = useMemo(() => {
-  if (!idsFiltrados) return rows;
-  return rows.filter(r => idsFiltrados.has(r.id));
-}, [rows, idsFiltrados]);
+const colSettings = useColumnSettings();
+...
+<div className="flex items-center gap-2">
+  <Link to="/carteira/novo">...</Link>
+  <ViewToggle ... />
+  <ColumnSettings settings={colSettings} />
+</div>
+...
+<ClientList ... visibleColumns={colSettings.visibleColumns} />
 ```
 
-Ordem visual dentro do `<div className="p-4 ...">`:
-1. Título "Carteira" + `LimparFiltrosBtn` + Novo cliente + ViewToggle (já existem)
-2. `<SubFilters />` (já existe)
-3. **NOVO** `<CarteiraKpisHeader ... />`
-4. `<BulkActionBar />` (já existe)
-5. `<PreFilterChips />` + `<ClientList rows={linhasTabela} />` + paginação (já existe)
+## Arquivos
 
-Quando `linhasTabela.length === 0` e `idsFiltrados` ativo, `ClientList` recebe rows vazias; adicionar variante de mensagem em `EmptyRow` ("Nenhum cliente atende aos filtros aplicados") apenas quando `temFiltroAtivo`.
+**Novos:**
+- `src/features/carteira/lib/columns.ts` — catálogo + defaults + tipo `CarteiraColumnId`
+- `src/features/carteira/hooks/useColumnSettings.ts`
+- `src/features/carteira/components/ColumnSettings.tsx`
 
-## API — `listKpiClientes.ts`
+**Editados:**
+- `src/features/carteira/components/ClientList.tsx` — refator pra registry de colunas + nova prop `visibleColumns`
+- `src/pages/Carteira.tsx` — instancia hook, renderiza `<ColumnSettings>` no header, passa `visibleColumns` pro `ClientList`
+- `src/features/carteira/index.ts` — re-export `ColumnSettings`, `useColumnSettings`, tipo `CarteiraColumnId`
+- `package.json` — deps dnd-kit (via `bun add`)
 
-```ts
-export async function listKpiClientes(f: CarteiraFiltroHeader): Promise<ClienteKpi[]> {
-  let q = publicDb.from('vw_carteira_clientes_kpi' as never).select('*');
-  if (f.vendedor) q = q.eq('vendedor_nome', f.vendedor);
-  // ...mesmos filtros que listClientes
-  const { data, error } = await q;
-  if (error) throw error;
-  return (data ?? []).map(normalizeRow); // num() para campos numéricos
-}
-```
+## Gotchas
 
-`useCarteiraKpiClientes` usa react-query com `staleTime: 5min` (dataset estável), `placeholderData: prev`.
+1. **Refator do `ClientList` é a parte arriscada.** São 17 colunas com markup denso (Pills, ProgressBar, ícones, formatadores). Vou extrair cada `<th>`/`<td>` 1-pra-1 pro registry sem mudar nenhum classe ou lógica de cor — assim o diff visual é zero quando todas estão visíveis na ordem default. Vale rodar a página com defaults e comparar antes/depois.
+2. **`colSpan` do `LoadingRow`/`EmptyRow`** precisa virar dinâmico (`visibleColumns.length + 1`), senão quebra o "Nenhum cliente encontrado" quando o usuário oculta colunas.
+3. **Persistência durante drag**: cada `onDragEnd` dispara um `setState` → `useEffect` → escrita. Debounce de 200ms cobre o caso de o usuário arrastar várias colunas em sequência. Não é crítico, mas evita writes desnecessárias.
+4. **Sanitização do payload do localStorage** é importante: se a gente renomear/remover uma coluna no futuro, o JSON antigo do usuário não pode quebrar a página. O hook filtra ids desconhecidos e mescla novos no fim do array.
+5. **dnd-kit + Radix Popover**: o `PointerSensor` do dnd-kit funciona dentro do PopoverContent sem ajuste. Só preciso configurar `activationConstraint: { distance: 4 }` pra não disparar drag em click acidental no checkbox.
+6. **`PreFilterChips` mostra contagem por categoria** baseado nas rows atuais — não é afetado por colunas, só por linhas. Ok.
+7. **Ordenação da tabela por coluna** não existe hoje (a tabela vem ordenada por faturamento desc do backend). O reorder é puramente visual; não introduz click-to-sort. Fica fora de escopo, alinhado com o pedido.
 
-## Estilos / tokens
-- Reusar tokens existentes (`bg-card`, `border-border`, `text-good/warn/bad`, `text-gray-text`, `font-display`, `tabular`).
-- Adicionar variáveis `--color-background-info`, `--color-text-info`, `--color-border-info` em `index.css` (HSL) para o estado ativo de filtro — único token novo necessário.
-- Cores fixas pedidas (`#BA7517`, `#5F5E5A`) ficam inline na matriz com comentário (são marcadores de risco específicos).
-- Formatação centralizada em `lib/format.ts` — adicionar `formatMoneyShort` (R$ XM) e `formatPctSigned`.
+## Validação
 
-## Testes
-- `lib/carteiraKpis.test.ts` — predicados, toggles, agregadores, divisão por zero.
-- `__tests__/CarteiraKpisHeader.test.tsx` (RTL) — clique em sub-item ativa filtro; clique repetido limpa; "Limpar filtros" some quando filter vazio.
-
-## Critérios de aceite (do enunciado)
-- Total / contagens por ano / soma de fat / tendência / desvio → conferir com SQL no banco e comentar discrepâncias conhecidas.
-- Combinação header + KPI → AND (validado por construção).
-- Toggle dentro de dimensão → mutuamente exclusivo (helpers já fazem isso).
-- Estado vazio amigável.
-- Mobile: grids viram 1 coluna; matriz com `overflow-x-auto`.
-
-## Fora de escopo
-- Não alterar `vw_carteira` nem `useCarteiraClientes`.
-- Não mudar colunas, ordenação ou paginação da tabela.
-- Não tocar nas abas Kanban / Mapa (recebem rows brutas como hoje).
+Após implementar: abrir `/carteira`, conferir que (a) a tabela renderiza idêntica ao estado atual com defaults, (b) ocultar 2-3 colunas reflete na tabela, (c) arrastar reordena, (d) reload mantém estado, (e) "Resetar pro padrão" volta tudo, (f) Cliente nunca some nem se move.

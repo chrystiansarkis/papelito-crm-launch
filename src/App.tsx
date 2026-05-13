@@ -14,6 +14,10 @@ import PedidoPage from "@/pages/Pedido";
 import PedidoNovo from "@/pages/PedidoNovo";
 import PedidoEditar from "@/pages/PedidoEditar";
 import Atendimentos from "@/pages/Atendimentos";
+import CampanhasVendas from "@/pages/CampanhasVendas";
+import CampanhaVendasNova from "@/pages/CampanhaVendasNova";
+import CampanhaVendasEditar from "@/pages/CampanhaVendasEditar";
+import CampanhaVendas from "@/pages/CampanhaVendas";
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 60_000, refetchOnWindowFocus: false } },
@@ -38,6 +42,10 @@ export default function App() {
               <Route path="/pedidos/:id/editar" element={<PedidoEditar />} />
               <Route path="/pedido/:id" element={<PedidoPage />} />
               <Route path="/atendimentos" element={<Atendimentos />} />
+              <Route path="/campanhas-vendas" element={<CampanhasVendas />} />
+              <Route path="/campanhas-vendas/nova" element={<CampanhaVendasNova />} />
+              <Route path="/campanhas-vendas/:id/editar" element={<CampanhaVendasEditar />} />
+              <Route path="/campanhas-vendas/:id" element={<CampanhaVendas />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Route>
           </Routes>

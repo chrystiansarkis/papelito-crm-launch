@@ -31,7 +31,25 @@
       "Bash(xargs grep -l '\\\\.insert\\(\\\\|\\\\.update\\(\\\\|\\\\.rpc\\(')",
       "Bash(Get-ChildItem -Path \"c:\\\\repo\\\\papelito-crm-launch\" -Directory)",
       "Bash(Select-Object -First 20)",
-      "Bash(python -c ' *)"
+      "Bash(python -c ' *)",
+      "Bash(Select-Object Name)",
+      "Bash(Get-ChildItem -Path \"C:\\\\repo\\\\papelito-crm-launch\" -Recurse -Filter \"supabase*\" -Directory)",
+      "Bash(Select-Object -ExpandProperty FullName)",
+      "Bash(xargs grep -l \"tabela\\\\|schema\\\\|entity\\\\|clientes\\\\|vendedor\\\\|pdv\")",
+      "Bash(python3 -c ' *)",
+      "Bash(cat \"/c/Users/Papelito/.claude/projects/c--repo-papelito-crm-launch/44bd5f96-fe89-40c8-9d71-fd4a970be4d5/tool-results/mcp-claude_ai_Supabase-list_tables-1778695298324.txt\")",
+      "Read(//c/Users/Papelito/.claude/projects/c--repo-papelito-crm-launch/44bd5f96-fe89-40c8-9d71-fd4a970be4d5/tool-results/**)",
+      "Bash(python3 -c \"import sys, json; data = json.load\\(sys.stdin\\); tables = [t['name'] for t in data.get\\('tables', []\\)]; print\\('\\\\n'.join\\(sorted\\(tables\\)\\)\\)\")",
+      "Bash(ls c:/repo/papelito-crm-launch/src/features/campanhas/)",
+      "Bash(ls c:/repo/papelito-crm-launch/src/features/orcamentos/)",
+      "Bash(ls c:/repo/papelito-crm-launch/src/components/sidebar/)",
+      "Bash(ls c:/repo/papelito-crm-launch/src/components/)",
+      "Bash(ls c:/repo/papelito-crm-launch/src/App.tsx c:/repo/papelito-crm-launch/src/routes 2>nul; ls c:/repo/papelito-crm-launch/src/)",
+      "Bash(ls c:/repo/papelito-crm-launch/supabase/migrations/ 2>nul | head -30)",
+      "Bash(node -e \"const s=require\\('sonner'\\); console.log\\(Object.keys\\(s.toast||{}\\)\\)\")"
+    ],
+    "additionalDirectories": [
+      "c:\\repo\\papelito-crm-launch"
     ]
   }
 }

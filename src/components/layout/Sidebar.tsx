@@ -2,6 +2,7 @@
 // profundidade — a fonte de verdade continua sendo RLS no banco)
 import { NavLink, useLocation } from "react-router-dom";
 import {
+  Award,
   BarChart3,
   CalendarClock,
   Home,
@@ -113,6 +114,7 @@ export const SIDEBAR_BASE_NAV: NavItemConfig[] = [
   { to: "/pedidos", label: "Pedidos", icon: Package, roles: ["vendedor", "ceo"] },
   { to: "/atendimentos", label: "Atendimentos", icon: CalendarClock, roles: ["vendedor", "gestor", "ceo", "admin"] },
   { to: "/campanhas", label: "Campanhas", icon: Megaphone, roles: ["trade", "ceo"] },
+  { to: "/campanhas-vendas", label: "Campanhas Vendas", icon: Award, roles: ["gestor", "ceo", "admin"] },
   { to: "/leads", label: "Leads", icon: Zap, badge: { value: 4, variant: "alert" }, roles: ["trade", "vendedor"] },
   { to: "/analise", label: "Análise", icon: BarChart3, roles: ["ceo", "trade"] },
   { to: "/cobranca", label: "Cobrança", icon: Wallet, roles: ["cobranca", "ceo"] },

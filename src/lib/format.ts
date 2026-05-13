@@ -19,6 +19,27 @@ export function formatDate(d: string | null | undefined): string {
   return d ? new Date(d).toLocaleDateString("pt-BR") : "—";
 }
 
+const MESES_PT_LOWER = [
+  "jan", "fev", "mar", "abr", "mai", "jun",
+  "jul", "ago", "set", "out", "nov", "dez",
+];
+
+// Formato "12/jan/2026" (pt-BR, mês abreviado em minúsculas).
+export function formatDateLong(d: string | null | undefined): string {
+  if (!d) return "—";
+  // Datas vindas do Postgres como "YYYY-MM-DD" — parse manual evita TZ-shift
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(d);
+  if (m) {
+    const [, y, mo, day] = m;
+    const idx = parseInt(mo, 10) - 1;
+    if (idx >= 0 && idx <= 11) return `${day}/${MESES_PT_LOWER[idx]}/${y}`;
+  }
+  const dt = new Date(d);
+  if (Number.isNaN(dt.getTime())) return "—";
+  const day = String(dt.getDate()).padStart(2, "0");
+  return `${day}/${MESES_PT_LOWER[dt.getMonth()]}/${dt.getFullYear()}`;
+}
+
 export function formatCnpj(c: string | null | undefined): string {
   if (!c) return "—";
   const n = c.replace(/\D/g, "");

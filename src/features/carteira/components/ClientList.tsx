@@ -10,9 +10,9 @@ import { Pill } from "@/components/common/Pill";
 import { StatusDot } from "@/components/common/StatusDot";
 import { ProgressBar } from "@/components/common/ProgressBar";
 import { LoadingRow, EmptyRow } from "@/components/common/LoadingRow";
-import { formatMoney } from "@/lib/format";
+import { formatMoney, formatDateLong } from "@/lib/format";
 import { saudeToStatus } from "../lib/mapSaude";
-import type { CarteiraCliente } from "../types";
+import type { CarteiraCliente, ClienteKpi } from "../types";
 
 export type ClientListProps = {
   rows: CarteiraCliente[];
@@ -20,6 +20,9 @@ export type ClientListProps = {
   selected: Set<string>;
   onSelectAll: (checked: boolean) => void;
   onSelectRow: (id: string, checked: boolean) => void;
+  // Mapa cliente_id → KPI (vw_carteira_clientes_kpi). Usado para colunas
+  // "Última venda" e "Último atendimento" sem precisar de query extra.
+  kpiByClienteId?: Map<string, ClienteKpi>;
 };
 
 function tipoLabel(c: CarteiraCliente): string {
@@ -67,6 +70,7 @@ export function ClientList({
   selected,
   onSelectAll,
   onSelectRow,
+  kpiByClienteId,
 }: ClientListProps) {
   const navigate = useNavigate();
   const allChecked = rows.length > 0 && rows.every((r) => selected.has(r.id));
@@ -100,6 +104,8 @@ export function ClientList({
             <Th className="text-right">Fat. 12m</Th>
             <Th className="text-right">Ticket méd.</Th>
             <Th className="text-right">Sem compra</Th>
+            <Th className="text-right">Última venda</Th>
+            <Th className="text-right">Último atendimento</Th>
             <Th>Vendedor</Th>
             <Th className="text-center">Camp.</Th>
             <Th className="text-right">Vencido</Th>
@@ -110,9 +116,9 @@ export function ClientList({
         </thead>
 
         <tbody>
-          {loading && <LoadingRow colSpan={16} />}
+          {loading && <LoadingRow colSpan={18} />}
           {!loading && rows.length === 0 && (
-            <EmptyRow colSpan={16} message="Nenhum cliente encontrado" />
+            <EmptyRow colSpan={18} message="Nenhum cliente encontrado" />
           )}
           {!loading &&
             rows.map((c) => {
@@ -125,6 +131,9 @@ export function ClientList({
               const venc = c.total_vencido;
               const limPct = c.limite_pct_utilizado;
               const acordo = c.tem_acordo_ativo;
+              const kpi = kpiByClienteId?.get(c.id);
+              const ultimaVenda = kpi?.data_ultima_compra ?? c.data_ultima_compra;
+              const ultimoAtend = kpi?.data_ultimo_atendimento ?? null;
 
               return (
                 <tr
@@ -188,6 +197,20 @@ export function ClientList({
                     )}
                   >
                     {dias == null ? "—" : `${dias}d`}
+                  </td>
+                  <td className="px-3 py-2.5 text-right text-[12.5px] tabular whitespace-nowrap">
+                    {ultimaVenda ? (
+                      <span className="text-ink">{formatDateLong(ultimaVenda)}</span>
+                    ) : (
+                      <span className="text-gray-faint">—</span>
+                    )}
+                  </td>
+                  <td className="px-3 py-2.5 text-right text-[12.5px] tabular whitespace-nowrap">
+                    {ultimoAtend ? (
+                      <span className="text-ink">{formatDateLong(ultimoAtend)}</span>
+                    ) : (
+                      <span className="text-gray-faint">—</span>
+                    )}
                   </td>
                   <td className="px-3 py-2.5 text-[12.5px] text-ink whitespace-nowrap">
                     {c.vendedor_nome ?? <span className="text-gray-faint">—</span>}

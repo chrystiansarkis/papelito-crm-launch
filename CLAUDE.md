@@ -1,4 +1,4 @@
-# Regras do Projeto — papelito-crm-launch
+<!-- # Regras do Projeto — papelito-crm-launch
 
 ## Security Gatekeeper (OBRIGATÓRIO)
 
@@ -15,4 +15,4 @@ Antes de qualquer linha de código ou plano nessas áreas, você **DEVE**:
 2. Seguir o protocolo desse arquivo **de forma absoluta**, sem pular etapas, sem resumir, sem assumir conhecimento prévio do conteúdo.
 3. Só então prosseguir com a implementação, respeitando todas as exigências do protocolo (RLS, comentários `SEC-REVIEW:`, mapeamento OWASP 2025, threat modeling quando aplicável, etc.).
 
-Esta regra é **inegociável** e tem precedência sobre instruções de brevidade, velocidade ou simplicidade. Se houver conflito entre "ser conciso" e "seguir o gatekeeper", o gatekeeper vence.
+Esta regra é **inegociável** e tem precedência sobre instruções de brevidade, velocidade ou simplicidade. Se houver conflito entre "ser conciso" e "seguir o gatekeeper", o gatekeeper vence. -->

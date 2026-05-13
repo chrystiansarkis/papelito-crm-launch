@@ -153,9 +153,12 @@ type AggBucket = {
   ytd2026Qtd: number;
   fat2025Rs: number;
   fat2025Qtd: number;
-  // pra ticket médio últimos 12m
+  // pra ticket médio últimos 12m (= rs12mAtual / qtd12mAtual)
   rs12m: number;
   qtd12m: number;
+  // Sprint 2.6c — janela 12m anterior (12-23 meses atrás), pra cresc12m.
+  rs12mAnterior: number;
+  qtd12mAnterior: number;
 };
 
 function emptyBucket(): AggBucket {
@@ -165,6 +168,7 @@ function emptyBucket(): AggBucket {
     ytd2026Rs: 0, ytd2026Qtd: 0,
     fat2025Rs: 0, fat2025Qtd: 0,
     rs12m: 0, qtd12m: 0,
+    rs12mAnterior: 0, qtd12mAnterior: 0,
   };
 }
 
@@ -238,10 +242,16 @@ function bumpBucket(b: AggBucket, colKey: string, rs: number, qtd: number, ano: 
     b.ytd2026Rs += rs; b.ytd2026Qtd += qtd;
   }
   if (ano === 2025) { b.fat2025Rs += rs; b.fat2025Qtd += qtd; }
-  // Últimos 12 meses (rolling)
-  const cutoff = (yearNow * 12 + monthNow) - 12;
-  if (ano * 12 + mes > cutoff && ano * 12 + mes <= yearNow * 12 + monthNow) {
+  // Janelas rolling 12m (Sprint 2.6c).
+  const idxAtual = yearNow * 12 + monthNow;
+  const idx = ano * 12 + mes;
+  const cutoff = idxAtual - 12;       // últimos 12m corridos
+  const cutoffAnt = idxAtual - 24;    // 12-23m atrás
+  if (idx > cutoff && idx <= idxAtual) {
     b.rs12m += rs; b.qtd12m += qtd;
+  }
+  if (idx > cutoffAnt && idx <= cutoff) {
+    b.rs12mAnterior += rs; b.qtd12mAnterior += qtd;
   }
 }
 

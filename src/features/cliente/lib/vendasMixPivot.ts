@@ -420,6 +420,9 @@ export function buildRows(
   const showPai = detalhe.includes("pai");
   const showFilho = detalhe.includes("filho");
   const showSku = detalhe.includes("sku");
+  // Quando o usuário está em modo "default" (3 níveis), respeitamos `expandidos`.
+  // Em qualquer recorte custom, auto-expandimos pra mostrar o que ele pediu.
+  const modoDefault = showPai && showFilho && showSku;
 
   // Modo "só SKU": lista flat global ordenada por total.rs desc (ignora hierarquia).
   if (showSku && !showPai && !showFilho) {
@@ -464,13 +467,8 @@ export function buildRows(
   const rows: LinhaPivot[] = [];
   for (const linhaPai of paiOrdenado) {
     if (showPai) rows.push(linhaPai);
-    // Quando pai está oculto, filhos são auto-expandidos.
-    // Quando filho/sku estão ocultos, drill subsequente também é pulado.
-    const drillFilhos = showFilho || showSku;
-    if (!drillFilhos) continue;
-    const paiAutoExpand = !showPai;
-    if (showPai && !expandidos.has(linhaPai.key)) continue;
-    void paiAutoExpand;
+    if (!showFilho && !showSku) continue;
+    if (modoDefault && !expandidos.has(linhaPai.key)) continue;
     const filhos: LinhaPivot[] = [];
     buckets.filho.forEach((b, key) => {
       if (!key.startsWith(`${linhaPai.key}>`)) return;
@@ -489,9 +487,7 @@ export function buildRows(
     for (const f of filhosOrd) {
       if (showFilho) rows.push(f);
       if (!showSku) continue;
-      // Filho auto-expandido quando filho está oculto OU quando pai está oculto.
-      const filhoAutoExpand = !showFilho || !showPai;
-      if (showFilho && !filhoAutoExpand && !expandidos.has(f.key)) continue;
+      if (modoDefault && !expandidos.has(f.key)) continue;
       const skus: LinhaPivot[] = [];
       buckets.sku.forEach((b, key) => {
         if (!key.startsWith(`${f.key}>`)) return;

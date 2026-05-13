@@ -81,6 +81,15 @@ export type ClienteFichaKpi = {
   fat_12m_piteiras: number;
   fat_12m_outros: number;
   tier: string | null;
+  // Faturamento histórico anual (vw_carteira_clientes_kpi)
+  fat_2020: number | null;
+  fat_2021: number | null;
+  fat_2022: number | null;
+  fat_2023: number | null;
+  fat_2024: number | null;
+  fat_2025: number | null;
+  fat_2026: number | null;
+  tendencia_2026: number | null;
 };
 
 export type MixTierRow = {
@@ -155,4 +164,64 @@ export type AcaoSugerida = {
   body: string;
   // Pra modo "alerta resumido" (Bloco 4.7)
   shortLabel: string;
+};
+
+// =====================================================================
+// Sprint 2 — Tab Vendas & Mix
+// =====================================================================
+
+export type GrupoPaiKey = "papeis" | "filtros" | "piteiras" | "outros";
+
+// Linha denormalizada de public.vw_cliente_vendas_long
+export type VendaLong = {
+  cliente_id: string;
+  grupo_pai: GrupoPaiKey;
+  grupo_filho: string;
+  cod_produto: string;
+  nome_produto: string | null;
+  ano: number;
+  mes: number;
+  valor: number;
+  qtd: number;
+};
+
+export type SkuPerdido = {
+  cliente_id: string;
+  cod_produto: string;
+  nome_produto: string | null;
+  ultima_compra: string;
+  dias_sem_compra: number;
+  valor_medio_mensal: number;
+};
+
+export type PenetracaoCarteira = {
+  avg_skus_por_cliente: number;
+  total_skus_ativos: number;
+};
+
+export type ObsProdutoScope = "grupo_pai" | "grupo_filho" | "sku";
+
+export type ObservacaoProduto = {
+  id: string;
+  cliente_id: string;
+  scope: ObsProdutoScope;
+  scope_value: string;
+  texto: string;
+  fixada: boolean;
+  autor_id: string | null;
+  criado_em: string;
+  atualizado_em: string | null;
+};
+
+// Estado do explorador (mantido no componente)
+export type MixGranularidade = "ano" | "tri" | "mes";
+export type MixMetrica = "rs" | "qtd" | "pct";
+export type MixComparar = "none" | "media" | "anterior";
+
+export type MixFiltros = {
+  // Chaves: "2025" | "2025-T1" | "2025-01"
+  periodos: string[];
+  granularidade: MixGranularidade;
+  metrica: MixMetrica;
+  comparar: MixComparar;
 };

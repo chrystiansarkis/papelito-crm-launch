@@ -1,9 +1,7 @@
 // Wrapper específico da carteira sobre o columnSettings genérico em shared/.
 import { useMemo } from "react";
-import {
-  useColumnSettings as useShared,
-  type ColumnSettings as SharedSettings,
-} from "@/features/shared/columnSettings";
+import { useColumnSettings as useShared } from "@/features/shared/columnSettings";
+import type { ColumnSettingsState } from "@/features/shared/columnSettings";
 import {
   CARTEIRA_COLUMN_IDS,
   DEFAULT_ORDER,
@@ -13,7 +11,7 @@ import {
 
 const STORAGE_KEY = "papelito:carteira:column-settings:chrystian";
 
-export type ColumnSettings = SharedSettings<CarteiraColumnId>;
+export type ColumnSettings = ColumnSettingsState<CarteiraColumnId>;
 
 export function useColumnSettings(): ColumnSettings {
   const cfg = useMemo(

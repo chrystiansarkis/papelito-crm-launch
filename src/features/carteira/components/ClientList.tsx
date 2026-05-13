@@ -604,16 +604,3 @@ function CellWrap({
   return render(cliente, ctx);
 }
 
-function Th({
-  children,
-  className,
-}: {
-  children: React.ReactNode;
-  className?: string;
-}) {
-  return (
-    <th className={cn("px-3 py-2.5 text-left label-caps text-gray-text", className)}>
-      {children}
-    </th>
-  );
-}

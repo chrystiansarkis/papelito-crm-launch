@@ -24,6 +24,7 @@ export const carteiraFiltroSchema = z.object({
     .regex(/^(\d{4})?$/, "periodo deve ser ano YYYY")
     .default(""),
   page: z.number().int().nonnegative().default(0),
+  clienteIds: z.array(z.string().uuid()).max(5000).nullable().optional(),
 });
 
 export type CarteiraFiltroParsed = z.infer<typeof carteiraFiltroSchema>;

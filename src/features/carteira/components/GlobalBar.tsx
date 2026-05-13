@@ -4,9 +4,10 @@
 // GlobalBar: barra sticky no topo da página. Linha 1 mostra os filtros globais
 // interativos (chips dropdown, com disabled+tooltip para filtros sem dado ou
 // não aplicáveis à view). Linha 2 mostra visões salvas + métricas agregadas.
-import { Plus, Star } from "lucide-react";
-import { Chip } from "@/components/common/Chip";
+import { useEffect, useState } from "react";
+import { Plus, Star, X } from "lucide-react";
 import { AppButton } from "@/components/common/AppButton";
+import { cn } from "@/lib/utils";
 import { formatMoney } from "@/lib/format";
 import {
   GlobalFiltersChips,
@@ -54,6 +55,38 @@ export function GlobalBar({
 }: GlobalBarProps) {
   const { filters, patch, reset } = useGlobalFilters();
 
+  const storageKey = `papelito:savedViews:${scope}`;
+  const [views, setViews] = useState<SavedView[]>(savedViews);
+  const [activeView, setActiveView] = useState<string | null>(null);
+
+  // Hidrata do localStorage uma vez (mantém DEFAULT_VIEWS como seed inicial).
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(storageKey);
+      if (raw) {
+        const parsed = JSON.parse(raw) as SavedView[];
+        if (Array.isArray(parsed)) setViews(parsed);
+      }
+    } catch {
+      /* ignore */
+    }
+  }, [storageKey]);
+
+  function persist(next: SavedView[]) {
+    setViews(next);
+    try {
+      localStorage.setItem(storageKey, JSON.stringify(next));
+    } catch {
+      /* ignore */
+    }
+  }
+
+  function removeView(name: string) {
+    if (!window.confirm(`Apagar visão "${name}"?`)) return;
+    persist(views.filter((v) => v.name !== name));
+    if (activeView === name) setActiveView(null);
+  }
+
   const ytdStr = formatMaybeMoney(metrics.ytd);
   const ticketStr = formatMaybeMoney(metrics.avgTicket);
   const countLabel = metrics.countLabel ?? "clientes";
@@ -76,14 +109,39 @@ export function GlobalBar({
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-2 flex-wrap">
           <span className="label-caps text-gray-text mr-1">Visões</span>
-          {savedViews.map((v) => (
-            <Chip key={v.name} variant="saved">
-              {v.starred && (
-                <Star className="w-3 h-3 fill-brand-deep text-brand-deep" strokeWidth={0} />
-              )}
-              {v.name}
-            </Chip>
-          ))}
+          {views.map((v) => {
+            const active = activeView === v.name;
+            return (
+              <div
+                key={v.name}
+                className={cn(
+                  "inline-flex items-center gap-1.5 pl-2.5 pr-1.5 py-1.5 rounded-md text-xs font-medium transition-all duration-150 select-none border",
+                  active
+                    ? "bg-brand border-brand text-ink"
+                    : "bg-brand-soft border-[#F5E599] text-brand-deep hover:border-brand",
+                )}
+              >
+                <button
+                  type="button"
+                  onClick={() => setActiveView(active ? null : v.name)}
+                  className="inline-flex items-center gap-1.5 cursor-pointer"
+                >
+                  {v.starred && (
+                    <Star className="w-3 h-3 fill-brand-deep text-brand-deep" strokeWidth={0} />
+                  )}
+                  {v.name}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => removeView(v.name)}
+                  aria-label={`Apagar visão ${v.name}`}
+                  className="ml-0.5 inline-flex items-center justify-center w-4 h-4 rounded text-muted-foreground hover:text-ink hover:bg-white/60 transition"
+                >
+                  <X className="w-3 h-3" strokeWidth={2} />
+                </button>
+              </div>
+            );
+          })}
           <button
             type="button"
             onClick={onAddView}

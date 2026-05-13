@@ -110,6 +110,7 @@ export function PivotTable({
   visibleMeta,
   mediasTier,
   tier,
+  displayMap,
 }: {
   vendas: import("../../../types").VendaLong[];
   filtros: MixFiltros;
@@ -123,10 +124,11 @@ export function PivotTable({
   visibleMeta: MixColumnId[];
   mediasTier: MediaTierGrupoPai[];
   tier: string | null;
+  displayMap?: Map<string, string>;
 }) {
   const { rows, colunas, total } = useMemo(
-    () => buildRows(vendas, filtros, expandidos, sort),
-    [vendas, filtros, expandidos, sort],
+    () => buildRows(vendas, filtros, expandidos, sort, displayMap),
+    [vendas, filtros, expandidos, sort, displayMap],
   );
   const metricas = filtros.metricas.length > 0 ? filtros.metricas : (["rs"] as MixMetrica[]);
 

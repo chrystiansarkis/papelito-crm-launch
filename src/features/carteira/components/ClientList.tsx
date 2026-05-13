@@ -108,10 +108,9 @@ function moneyCompactCell(value: number | null | undefined, extraClass = "") {
 
 function makeYearRenderer(
   field: "fat_2020" | "fat_2021" | "fat_2022" | "fat_2023" | "fat_2024" | "fat_2025" | "fat_2026",
-  label: string,
 ): ColumnRenderer {
   return {
-    header: () => <Th className="text-right">{label}</Th>,
+    align: "right",
     cell: (c, ctx) => {
       const kpi = ctx.kpiByClienteId?.get(c.id);
       return moneyCompactCell(kpi ? kpi[field] : null);
@@ -121,7 +120,8 @@ function makeYearRenderer(
 
 const COLUMN_RENDERERS: Record<CarteiraColumnId, ColumnRenderer> = {
   cliente: {
-    header: () => <Th className="min-w-[180px]">Cliente</Th>,
+    align: "left",
+    headerClass: "min-w-[180px]",
     cell: (c) => (
       <td className="px-3 py-2.5">
         <div className="flex flex-col">
@@ -135,7 +135,7 @@ const COLUMN_RENDERERS: Record<CarteiraColumnId, ColumnRenderer> = {
     ),
   },
   saude: {
-    header: () => <Th>Saúde</Th>,
+    align: "left",
     cell: (c) => (
       <td className="px-3 py-2.5">
         <StatusDot status={saudeToStatus(c.saude)} />
@@ -143,7 +143,7 @@ const COLUMN_RENDERERS: Record<CarteiraColumnId, ColumnRenderer> = {
     ),
   },
   tipo: {
-    header: () => <Th>Tipo</Th>,
+    align: "left",
     cell: (c) => (
       <td className="px-3 py-2.5">
         <Pill variant="soft">{tipoLabel(c)}</Pill>
@@ -151,7 +151,7 @@ const COLUMN_RENDERERS: Record<CarteiraColumnId, ColumnRenderer> = {
     ),
   },
   rfv: {
-    header: () => <Th className="text-right">RFV</Th>,
+    align: "right",
     cell: (c) => (
       <td className="px-3 py-2.5 text-right text-[12.5px] tabular text-ink">
         {c.rfv_score != null ? c.rfv_score : <span className="text-gray-faint">—</span>}
@@ -159,7 +159,7 @@ const COLUMN_RENDERERS: Record<CarteiraColumnId, ColumnRenderer> = {
     ),
   },
   yoy: {
-    header: () => <Th className="text-right">YoY</Th>,
+    align: "right",
     cell: (c) => {
       const yoy = yoyVariation(c);
       return (
@@ -177,7 +177,7 @@ const COLUMN_RENDERERS: Record<CarteiraColumnId, ColumnRenderer> = {
     },
   },
   pedidos_12m: {
-    header: () => <Th className="text-right">Pedidos 12m</Th>,
+    align: "right",
     cell: (c) => (
       <td className="px-3 py-2.5 text-right text-[12.5px] tabular text-ink">
         {c.qtd_pedidos_12m.toLocaleString("pt-BR")}
@@ -185,29 +185,29 @@ const COLUMN_RENDERERS: Record<CarteiraColumnId, ColumnRenderer> = {
     ),
   },
   fat_12m: {
-    header: () => <Th className="text-right">Fat. 12m</Th>,
+    align: "right",
     cell: (c) => (
       <td className="px-3 py-2.5 text-right text-[12.5px] tabular text-ink font-medium whitespace-nowrap">
         {formatMoney(c.faturamento_12m)}
       </td>
     ),
   },
-  fat_2020: makeYearRenderer("fat_2020", "Fat. 2020"),
-  fat_2021: makeYearRenderer("fat_2021", "Fat. 2021"),
-  fat_2022: makeYearRenderer("fat_2022", "Fat. 2022"),
-  fat_2023: makeYearRenderer("fat_2023", "Fat. 2023"),
-  fat_2024: makeYearRenderer("fat_2024", "Fat. 2024"),
-  fat_2025: makeYearRenderer("fat_2025", "Fat. 2025"),
-  fat_2026: makeYearRenderer("fat_2026", "Fat. 2026 YTD"),
+  fat_2020: makeYearRenderer("fat_2020"),
+  fat_2021: makeYearRenderer("fat_2021"),
+  fat_2022: makeYearRenderer("fat_2022"),
+  fat_2023: makeYearRenderer("fat_2023"),
+  fat_2024: makeYearRenderer("fat_2024"),
+  fat_2025: makeYearRenderer("fat_2025"),
+  fat_2026: makeYearRenderer("fat_2026"),
   tendencia_2026: {
-    header: () => <Th className="text-right">Tend. 2026</Th>,
+    align: "right",
     cell: (c, ctx) => {
       const kpi = ctx.kpiByClienteId?.get(c.id);
       return moneyCompactCell(kpi?.tendencia_2026 ?? null, "text-gray-text");
     },
   },
   desvio_2026: {
-    header: () => <Th className="text-right">Desvio 2026</Th>,
+    align: "right",
     cell: (c, ctx) => {
       const kpi = ctx.kpiByClienteId?.get(c.id);
       const v = kpi?.desvio_2026 ?? null;
@@ -231,7 +231,7 @@ const COLUMN_RENDERERS: Record<CarteiraColumnId, ColumnRenderer> = {
     },
   },
   ticket_medio: {
-    header: () => <Th className="text-right">Ticket méd.</Th>,
+    align: "right",
     cell: (c) => (
       <td className="px-3 py-2.5 text-right text-[12.5px] tabular text-gray-text whitespace-nowrap">
         {c.ticket_medio_12m > 0 ? (
@@ -243,7 +243,7 @@ const COLUMN_RENDERERS: Record<CarteiraColumnId, ColumnRenderer> = {
     ),
   },
   sem_compra: {
-    header: () => <Th className="text-right">Sem compra</Th>,
+    align: "right",
     cell: (c) => {
       const dias = c.dias_sem_compra;
       return (
@@ -259,7 +259,7 @@ const COLUMN_RENDERERS: Record<CarteiraColumnId, ColumnRenderer> = {
     },
   },
   ultima_venda: {
-    header: () => <Th className="text-right">Última venda</Th>,
+    align: "right",
     cell: (c, ctx) => {
       const kpi = ctx.kpiByClienteId?.get(c.id);
       const ultimaVenda = kpi?.data_ultima_compra ?? c.data_ultima_compra;
@@ -275,7 +275,7 @@ const COLUMN_RENDERERS: Record<CarteiraColumnId, ColumnRenderer> = {
     },
   },
   ultimo_atendimento: {
-    header: () => <Th className="text-right">Último atendimento</Th>,
+    align: "right",
     cell: (c, ctx) => {
       const kpi = ctx.kpiByClienteId?.get(c.id);
       const ultimoAtend = kpi?.data_ultimo_atendimento ?? null;
@@ -291,7 +291,7 @@ const COLUMN_RENDERERS: Record<CarteiraColumnId, ColumnRenderer> = {
     },
   },
   vendedor: {
-    header: () => <Th>Vendedor</Th>,
+    align: "left",
     cell: (c) => (
       <td className="px-3 py-2.5 text-[12.5px] text-ink whitespace-nowrap">
         {c.vendedor_nome ?? <span className="text-gray-faint">—</span>}
@@ -299,7 +299,7 @@ const COLUMN_RENDERERS: Record<CarteiraColumnId, ColumnRenderer> = {
     ),
   },
   camp: {
-    header: () => <Th className="text-center">Camp.</Th>,
+    align: "center",
     cell: (c) => {
       const hasCampaign = c.em_familia_papelito || c.em_pdv_perfeito;
       return (
@@ -312,7 +312,7 @@ const COLUMN_RENDERERS: Record<CarteiraColumnId, ColumnRenderer> = {
     },
   },
   vencido: {
-    header: () => <Th className="text-right">Vencido</Th>,
+    align: "right",
     cell: (c) => {
       const venc = c.total_vencido;
       return (
@@ -330,7 +330,7 @@ const COLUMN_RENDERERS: Record<CarteiraColumnId, ColumnRenderer> = {
     },
   },
   limite_pct: {
-    header: () => <Th className="text-right">Limite %</Th>,
+    align: "right",
     cell: (c) => {
       const limPct = c.limite_pct_utilizado;
       return (
@@ -354,7 +354,7 @@ const COLUMN_RENDERERS: Record<CarteiraColumnId, ColumnRenderer> = {
     },
   },
   fin: {
-    header: () => <Th className="text-center">Fin.</Th>,
+    align: "center",
     cell: (c) => {
       const score = (c.score_pagamento ?? "").toUpperCase();
       return (
@@ -376,7 +376,8 @@ const COLUMN_RENDERERS: Record<CarteiraColumnId, ColumnRenderer> = {
     },
   },
   proxima_acao: {
-    header: () => <Th className="min-w-[140px]">Próxima ação IA</Th>,
+    align: "left",
+    headerClass: "min-w-[140px]",
     cell: (c) => (
       <td className="px-3 py-2.5">
         {c.tem_acordo_ativo ? (

@@ -41,6 +41,19 @@ const statusCampanha = z.enum([
   "finalizada",
   "cancelada",
 ]);
+const regraMeta = z.enum(["acompanhamento", "bloqueio", "proporcional"]);
+
+export const metaGeralSchema = z.object({
+  mecanica_id: z.string(),
+  valor: z.number().nonnegative(),
+});
+
+export const metaVendedorSchema = z.object({
+  id: z.string(),
+  mecanica_id: z.string(),
+  usuario_id: z.string().min(1, "Selecione o vendedor"),
+  valor: z.number().nonnegative(),
+});
 
 export const mecanicaSchema = z
   .object({
@@ -156,6 +169,10 @@ export const campanhaSchema = z
     inclui_cliente_pj: z.boolean(),
     papeis_contato_incluidos: z.array(papelContato),
     escopo_produtos: escopoProdutos,
+    regra_meta: regraMeta,
+    meta_minima_proporcional: z.number().min(0).max(100),
+    metas_gerais: z.array(metaGeralSchema),
+    metas_vendedores: z.array(metaVendedorSchema),
     observacoes: z.string(),
     resumo_pos_encerramento: z.string().nullable(),
     motivo_cancelamento: z.string().nullable(),
@@ -210,6 +227,26 @@ export const campanhaSchema = z
         path: ["participantes_clientes_pj"],
         message: "Adicione ao menos um cliente",
       });
+    }
+    // Metas: cada meta_geral/individual deve referenciar mecânica existente
+    const mecanicasIds = new Set(c.mecanicas.map((m) => m.id));
+    for (const [idx, mg] of c.metas_gerais.entries()) {
+      if (!mecanicasIds.has(mg.mecanica_id)) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["metas_gerais", idx, "mecanica_id"],
+          message: "Mecânica não existe",
+        });
+      }
+    }
+    for (const [idx, mv] of c.metas_vendedores.entries()) {
+      if (!mecanicasIds.has(mv.mecanica_id)) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["metas_vendedores", idx, "mecanica_id"],
+          message: "Mecânica não existe",
+        });
+      }
     }
   });
 

@@ -44,6 +44,25 @@ export type TipoBeneficiario =
 
 export type EscopoProdutos = "todos" | "especifico";
 
+// Regra de meta — como a meta afeta o prêmio.
+// - acompanhamento: meta serve só para visualização (% atingido).
+// - bloqueio: se não bateu meta (100%), valor do prêmio é zerado.
+// - proporcional: prêmio multiplicado pelo % atingido; corte mínimo opcional.
+export type RegraMeta = "acompanhamento" | "bloqueio" | "proporcional";
+
+export type MetaGeral = {
+  // Uma meta por mecânica. A unidade é a mesma da mecânica (qtd / R$).
+  mecanica_id: string;
+  valor: number;
+};
+
+export type MetaVendedor = {
+  id: string;
+  mecanica_id: string;
+  usuario_id: string;
+  valor: number;
+};
+
 export type FaixaPremio = {
   de: number;
   ate: number;
@@ -129,6 +148,13 @@ export type Campanha = {
   papeis_contato_incluidos: PapelContato[];
 
   escopo_produtos: EscopoProdutos;
+
+  // Metas (opcionais). Quando não cadastradas, regra_meta é ignorada.
+  regra_meta: RegraMeta;
+  meta_minima_proporcional: number; // 0–100; corte mínimo p/ proporcional
+  metas_gerais: MetaGeral[];
+  metas_vendedores: MetaVendedor[];
+
   observacoes: string;
   resumo_pos_encerramento: string | null;
   motivo_cancelamento: string | null;
@@ -224,6 +250,12 @@ export const PAPEL_CONTATO_LABEL: Record<PapelContato, string> = {
   decisor: "Decisor",
   influenciador: "Influenciador",
   outro: "Outro",
+};
+
+export const REGRA_META_LABEL: Record<RegraMeta, string> = {
+  acompanhamento: "Apenas acompanhamento",
+  bloqueio: "Bloqueia prêmio se não bater meta",
+  proporcional: "Proporcional ao % atingido",
 };
 
 export const TIPO_BENEFICIARIO_LABEL: Record<TipoBeneficiario, string> = {

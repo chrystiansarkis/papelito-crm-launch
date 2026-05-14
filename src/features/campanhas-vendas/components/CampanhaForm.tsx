@@ -20,13 +20,17 @@ import {
   useClientesLookup,
   useGruposLookup,
   useProdutosLookup,
+  useVendedoresLookup,
 } from "../hooks/useLookups";
 import { campanhaSchema } from "../schemas";
 import { novoIdLocal } from "../lib/initial";
 import {
   baixarCsv,
   extrairIdsDeProdutos,
+  extrairMetasDeVendedores,
   produtosToCsv,
+  vendedoresMetaToCsv,
+  type MetaVendedorCsvRow,
   type ProdutoCsvRow,
 } from "../lib/csv";
 import {
@@ -34,6 +38,8 @@ import {
   MODO_PREMIACAO_LABEL,
   PAPEIS_CONTATO,
   PAPEL_CONTATO_LABEL,
+  PAPEL_EQUIPE_LABEL,
+  REGRA_META_LABEL,
   TIPO_BENEFICIARIO_LABEL,
   TIPO_MECANICA_LABEL,
   TIPO_PREMIO_LABEL,
@@ -42,11 +48,13 @@ import {
   type Campanha,
   type CriterioPdvNovo,
   type Mecanica,
+  type MetaVendedor,
   type ModoPremiacao,
   type PapelContato,
   type ParticipanteClientePJ,
   type Premio,
   type ProdutoEscopo,
+  type RegraMeta,
   type TipoBeneficiario,
   type TipoMecanica,
   type TipoPremio,
@@ -87,6 +95,7 @@ export function CampanhaForm({ initial, mode }: Props) {
           <TabsTrigger value="mecanicas">Mecânicas</TabsTrigger>
           <TabsTrigger value="produtos">Produtos</TabsTrigger>
           <TabsTrigger value="premios">Prêmios</TabsTrigger>
+          <TabsTrigger value="metas">Metas</TabsTrigger>
           {c.inclui_cliente_pj && (
             <TabsTrigger value="clientes">Clientes</TabsTrigger>
           )}
@@ -103,6 +112,9 @@ export function CampanhaForm({ initial, mode }: Props) {
         </TabsContent>
         <TabsContent value="premios">
           <Premios c={c} setC={setC} />
+        </TabsContent>
+        <TabsContent value="metas">
+          <MetasTab c={c} setC={setC} />
         </TabsContent>
         <TabsContent value="clientes">
           <ClientesTab c={c} setC={setC} />
@@ -932,6 +944,320 @@ function ClientesTab({ c, setC }: { c: Campanha; setC: (c: Campanha) => void }) 
             </button>
           </div>
         ))}
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
+// Aba: Metas (meta geral por mecânica + metas individuais opcionais)
+// ============================================================================
+function MetasTab({ c, setC }: { c: Campanha; setC: (c: Campanha) => void }) {
+  const vendedores = useVendedoresLookup();
+  const pessoas = vendedores.data ?? [];
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [mecanicaImport, setMecanicaImport] = useState<string>("");
+
+  if (c.mecanicas.length === 0) {
+    return (
+      <div className="bg-white border border-gray-line rounded-md p-6 text-sm text-gray-text">
+        Adicione mecânicas antes de cadastrar metas.
+      </div>
+    );
+  }
+
+  const setRegra = (r: RegraMeta) => setC({ ...c, regra_meta: r });
+  const setMinimo = (n: number) => setC({ ...c, meta_minima_proporcional: n });
+
+  const setMetaGeral = (mecanica_id: string, valor: number) => {
+    const outros = c.metas_gerais.filter((m) => m.mecanica_id !== mecanica_id);
+    if (valor > 0) {
+      setC({ ...c, metas_gerais: [...outros, { mecanica_id, valor }] });
+    } else {
+      setC({ ...c, metas_gerais: outros });
+    }
+  };
+
+  const getMetaGeral = (mecanica_id: string): number => {
+    return c.metas_gerais.find((m) => m.mecanica_id === mecanica_id)?.valor ?? 0;
+  };
+
+  const addMetaVendedor = (mecanica_id: string) => {
+    const nova: MetaVendedor = {
+      id: novoIdLocal("mv"),
+      mecanica_id,
+      usuario_id: "",
+      valor: 0,
+    };
+    setC({ ...c, metas_vendedores: [...c.metas_vendedores, nova] });
+  };
+
+  const updateMetaVendedor = (id: string, patch: Partial<MetaVendedor>) => {
+    setC({
+      ...c,
+      metas_vendedores: c.metas_vendedores.map((m) =>
+        m.id === id ? { ...m, ...patch } : m,
+      ),
+    });
+  };
+
+  const removeMetaVendedor = (id: string) => {
+    setC({
+      ...c,
+      metas_vendedores: c.metas_vendedores.filter((m) => m.id !== id),
+    });
+  };
+
+  const exportarMetas = (mecanica_id: string) => {
+    const mec = c.mecanicas.find((m) => m.id === mecanica_id);
+    if (!mec) return;
+    const existentes = new Map(
+      c.metas_vendedores
+        .filter((m) => m.mecanica_id === mecanica_id)
+        .map((m) => [m.usuario_id, m.valor]),
+    );
+    const rows: MetaVendedorCsvRow[] = pessoas.map((p) => ({
+      usuario_id: p.id,
+      nome: p.nome,
+      papel: PAPEL_EQUIPE_LABEL[p.papel],
+      meta: existentes.get(p.id) ?? "",
+    }));
+    baixarCsv(
+      `metas-${TIPO_MECANICA_LABEL[mec.tipo].toLowerCase().replace(/\s/g, "-")}.csv`,
+      vendedoresMetaToCsv(rows),
+    );
+    toast.success(`${rows.length} linhas exportadas`);
+  };
+
+  const onImportClick = (mecanica_id: string) => {
+    setMecanicaImport(mecanica_id);
+    fileRef.current?.click();
+  };
+
+  const onImportFile = async (file: File) => {
+    if (!mecanicaImport) return;
+    const texto = await file.text();
+    const pares = extrairMetasDeVendedores(texto);
+    if (pares.length === 0) {
+      toast.error("Nenhuma meta válida encontrada no arquivo");
+      return;
+    }
+    const idsConhecidos = new Set(pessoas.map((p) => p.id));
+    let aplicadas = 0;
+    const naoEncontrados: string[] = [];
+    const metasAtualizadas: MetaVendedor[] = c.metas_vendedores.filter(
+      (m) => m.mecanica_id !== mecanicaImport,
+    );
+    for (const par of pares) {
+      if (!idsConhecidos.has(par.usuario_id)) {
+        naoEncontrados.push(par.usuario_id);
+        continue;
+      }
+      if (par.meta <= 0) continue;
+      metasAtualizadas.push({
+        id: novoIdLocal("mv"),
+        mecanica_id: mecanicaImport,
+        usuario_id: par.usuario_id,
+        valor: par.meta,
+      });
+      aplicadas++;
+    }
+    setC({ ...c, metas_vendedores: metasAtualizadas });
+    if (aplicadas > 0) toast.success(`${aplicadas} meta(s) importada(s)`);
+    if (naoEncontrados.length > 0) {
+      toast.warning(
+        `${naoEncontrados.length} usuario(s) não encontrado(s): ${naoEncontrados.slice(0, 3).join(", ")}${naoEncontrados.length > 3 ? "..." : ""}`,
+      );
+    }
+    if (fileRef.current) fileRef.current.value = "";
+    setMecanicaImport("");
+  };
+
+  return (
+    <div className="space-y-4">
+      <input
+        ref={fileRef}
+        type="file"
+        accept=".csv,text/csv"
+        hidden
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) onImportFile(f);
+        }}
+      />
+
+      <div className="bg-white border border-gray-line rounded-md p-4 space-y-3">
+        <div>
+          <p className="text-sm font-semibold mb-1">Regra de meta</p>
+          <p className="text-xs text-gray-text mb-2">
+            Define como o atingimento da meta impacta o prêmio calculado.
+          </p>
+          <div className="space-y-2">
+            {(["acompanhamento", "bloqueio", "proporcional"] as RegraMeta[]).map((r) => (
+              <label key={r} className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  checked={c.regra_meta === r}
+                  onChange={() => setRegra(r)}
+                />
+                <span className="text-sm">{REGRA_META_LABEL[r]}</span>
+              </label>
+            ))}
+          </div>
+          {c.regra_meta === "proporcional" && (
+            <div className="mt-2 max-w-[260px]">
+              <label className="block text-[11px] font-medium mb-0.5">
+                Corte mínimo (% atingido)
+              </label>
+              <Input
+                type="number"
+                min={0}
+                max={100}
+                value={c.meta_minima_proporcional}
+                onChange={(e) => setMinimo(parseFloat(e.target.value) || 0)}
+              />
+              <p className="text-[11px] text-gray-text mt-1">
+                Abaixo desse %, o prêmio é zerado.
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        {c.mecanicas.map((m) => {
+          const metasMec = c.metas_vendedores.filter((x) => x.mecanica_id === m.id);
+          const unidade =
+            m.tipo === "volume" && m.unidade_volume === "valor_brl"
+              ? "R$"
+              : m.tipo === "volume"
+                ? "un"
+                : m.tipo === "positivacao"
+                  ? "PDVs"
+                  : "PDVs novos";
+          return (
+            <div key={m.id} className="bg-white border border-gray-line rounded-md p-4">
+              <p className="text-sm font-semibold mb-3">{TIPO_MECANICA_LABEL[m.tipo]}</p>
+
+              <div className="mb-4">
+                <label className="block text-xs font-medium mb-1">
+                  Meta geral da campanha ({unidade})
+                </label>
+                <Input
+                  type="number"
+                  min={0}
+                  className="max-w-[260px]"
+                  value={getMetaGeral(m.id) || ""}
+                  onChange={(e) =>
+                    setMetaGeral(m.id, parseFloat(e.target.value) || 0)
+                  }
+                  placeholder="Ex: 50000"
+                />
+                <p className="text-[11px] text-gray-text mt-1">
+                  Usada como referência geral e como meta padrão para vendedores sem meta
+                  individual.
+                </p>
+              </div>
+
+              <div className="pt-3 border-t border-gray-line">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div>
+                    <p className="text-sm font-semibold">
+                      Metas individuais por vendedor ({unidade})
+                    </p>
+                    <p className="text-xs text-gray-text">
+                      Opcionais. Sobrescrevem a meta geral para o vendedor cadastrado.
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => exportarMetas(m.id)}
+                    >
+                      <Download className="w-3.5 h-3.5 mr-1" /> Exportar CSV
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => onImportClick(m.id)}
+                    >
+                      <Upload className="w-3.5 h-3.5 mr-1" /> Importar CSV
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => addMetaVendedor(m.id)}
+                    >
+                      <Plus className="w-3.5 h-3.5 mr-1" /> Adicionar
+                    </Button>
+                  </div>
+                </div>
+
+                {metasMec.length === 0 && (
+                  <p className="text-xs text-gray-text mt-2">Nenhuma meta individual.</p>
+                )}
+
+                <div className="mt-2 space-y-2">
+                  {metasMec.map((mv) => (
+                    <div
+                      key={mv.id}
+                      className="grid grid-cols-1 sm:grid-cols-[1fr_180px_auto] gap-2 items-end border border-gray-line rounded p-2"
+                    >
+                      <div>
+                        <label className="block text-[11px] font-medium mb-0.5">
+                          Vendedor
+                        </label>
+                        <Select
+                          value={mv.usuario_id}
+                          onValueChange={(v) =>
+                            updateMetaVendedor(mv.id, { usuario_id: v })
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {pessoas.map((p) => (
+                              <SelectItem key={p.id} value={p.id}>
+                                {p.nome}{" "}
+                                <span className="text-gray-text">
+                                  — {PAPEL_EQUIPE_LABEL[p.papel]}
+                                </span>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-medium mb-0.5">
+                          Meta ({unidade})
+                        </label>
+                        <Input
+                          type="number"
+                          min={0}
+                          value={mv.valor || ""}
+                          onChange={(e) =>
+                            updateMetaVendedor(mv.id, {
+                              valor: parseFloat(e.target.value) || 0,
+                            })
+                          }
+                        />
+                      </div>
+                      <button
+                        onClick={() => removeMetaVendedor(mv.id)}
+                        className="text-gray-text hover:text-bad p-2"
+                        aria-label="Remover"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

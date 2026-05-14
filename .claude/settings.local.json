@@ -46,7 +46,11 @@
       "Bash(ls c:/repo/papelito-crm-launch/src/components/)",
       "Bash(ls c:/repo/papelito-crm-launch/src/App.tsx c:/repo/papelito-crm-launch/src/routes 2>nul; ls c:/repo/papelito-crm-launch/src/)",
       "Bash(ls c:/repo/papelito-crm-launch/supabase/migrations/ 2>nul | head -30)",
-      "Bash(node -e \"const s=require\\('sonner'\\); console.log\\(Object.keys\\(s.toast||{}\\)\\)\")"
+      "Bash(node -e \"const s=require\\('sonner'\\); console.log\\(Object.keys\\(s.toast||{}\\)\\)\")",
+      "Bash(dir \"C:\\\\Users\\\\Papelito\\\\.claude\\\\projects\\\\c--repo-papelito-crm-launch\\\\memory\\\\\")",
+      "Read(//c/Users/Papelito/.claude/projects/c--repo-papelito-crm-launch/memory//**)",
+      "Read(//c/Users/Papelito/.claude/plans//**)",
+      "Bash(git log *)"
     ],
     "additionalDirectories": [
       "c:\\repo\\papelito-crm-launch"

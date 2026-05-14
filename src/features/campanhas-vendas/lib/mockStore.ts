@@ -4,7 +4,7 @@
 import type { Campanha } from "../types";
 import { SEED_CAMPANHAS } from "../mocks/seed";
 
-const STORAGE_KEY = "campanhas-vendas-mock-v3";
+const STORAGE_KEY = "campanhas-vendas-mock-v4";
 
 function load(): Campanha[] {
   if (typeof window === "undefined") return [...SEED_CAMPANHAS];

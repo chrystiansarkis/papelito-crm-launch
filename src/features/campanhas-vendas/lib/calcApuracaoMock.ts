@@ -47,6 +47,45 @@ function valorPremio(premio: Premio, base: number): number {
   return 0;
 }
 
+// Aplica a regra de meta sobre o valor calculado. Retorna { valor, percentual }.
+// Quando não há meta cadastrada para o (vendedor, mecânica) e tampouco
+// meta geral, retorna o valor inalterado com percentual null.
+export function aplicarRegraMeta(
+  campanha: Campanha,
+  mecanica_id: string,
+  valor: number,
+  base: number,
+  usuario_id: string | null,
+): { valor: number; percentual: number | null; meta: number | null } {
+  // 1) meta individual tem prioridade quando usuario_id é informado
+  let meta: number | null = null;
+  if (usuario_id) {
+    const mi = campanha.metas_vendedores.find(
+      (m) => m.usuario_id === usuario_id && m.mecanica_id === mecanica_id,
+    );
+    if (mi) meta = mi.valor;
+  }
+  if (meta === null) {
+    const mg = campanha.metas_gerais.find((m) => m.mecanica_id === mecanica_id);
+    if (mg) meta = mg.valor;
+  }
+  if (meta === null || meta <= 0) {
+    return { valor, percentual: null, meta: null };
+  }
+  const pct = base / meta;
+  if (campanha.regra_meta === "acompanhamento") {
+    return { valor, percentual: pct, meta };
+  }
+  if (campanha.regra_meta === "bloqueio") {
+    if (pct < 1) return { valor: 0, percentual: pct, meta };
+    return { valor, percentual: pct, meta };
+  }
+  // proporcional
+  const minimo = campanha.meta_minima_proporcional / 100;
+  if (pct < minimo) return { valor: 0, percentual: pct, meta };
+  return { valor: valor * Math.min(pct, 1), percentual: pct, meta };
+}
+
 function vendasDoPeriodo(campanha: Campanha): MockVenda[] {
   const ini = campanha.data_inicio;
   const fim = campanha.data_fim_efetiva || campanha.data_fim;
@@ -180,8 +219,9 @@ export function calcularApuracaoMock(
         const base = baseEfetiva(mecanica, m);
         const pr = premio(campanha, mecanica.id, "cliente_pj", grupoExemplo, null);
         if (!pr) continue;
-        const valor = valorPremio(pr, base);
-        if (valor <= 0) continue;
+        const bruto = valorPremio(pr, base);
+        const aplicada = aplicarRegraMeta(campanha, mecanica.id, bruto, base, null);
+        if (aplicada.valor <= 0) continue;
         linhas.push(novaLinha({
           id: `${mecanica.id}-cli-${c.id}-r${revisao}`,
           mecanica_id: mecanica.id,
@@ -191,8 +231,13 @@ export function calcularApuracaoMock(
           participante_cliente_pj_id: c.id,
           premio: pr,
           base: m,
-          valor,
+          valor: aplicada.valor,
           revisao,
+          detalhes: {
+            meta: aplicada.meta,
+            percentual_atingido: aplicada.percentual,
+            valor_bruto_premio: bruto,
+          },
         }));
       }
     }
@@ -209,8 +254,9 @@ export function calcularApuracaoMock(
         const base = baseEfetiva(mecanica, m);
         const pr = premio(campanha, mecanica.id, papel, grupoExemplo, null);
         if (!pr) continue;
-        const valor = valorPremio(pr, base);
-        if (valor <= 0) continue;
+        const bruto = valorPremio(pr, base);
+        const aplicada = aplicarRegraMeta(campanha, mecanica.id, bruto, base, null);
+        if (aplicada.valor <= 0) continue;
         linhas.push(novaLinha({
           id: `${mecanica.id}-ct-${contato.id}-r${revisao}`,
           mecanica_id: mecanica.id,
@@ -220,8 +266,13 @@ export function calcularApuracaoMock(
           contato_id: contato.id,
           premio: pr,
           base: m,
-          valor,
+          valor: aplicada.valor,
           revisao,
+          detalhes: {
+            meta: aplicada.meta,
+            percentual_atingido: aplicada.percentual,
+            valor_bruto_premio: bruto,
+          },
         }));
       }
     }
@@ -244,19 +295,29 @@ function adicionaLinhaEquipe(
   const base = baseEfetiva(mecanica, m);
   const pr = premio(campanha, mecanica.id, papel, grupoExemplo, null);
   if (!pr) return;
-  const valor = valorPremio(pr, base);
-  if (valor <= 0) return;
-  linhas.push(novaLinha({
-    id: `${mecanica.id}-eq-${papel}-${usuario_id}-r${revisao}`,
-    mecanica_id: mecanica.id,
-    escopo: "equipe",
-    tipo_beneficiario: papel,
-    usuario_id,
-    premio: pr,
-    base: m,
-    valor,
-    revisao,
-  }));
+  const bruto = valorPremio(pr, base);
+  // Meta individual só faz sentido para vendedor. Supervisor/gerente usam meta geral.
+  const idParaMeta = papel === "vendedor" ? usuario_id : null;
+  const aplicada = aplicarRegraMeta(campanha, mecanica.id, bruto, base, idParaMeta);
+  if (aplicada.valor <= 0) return;
+  linhas.push(
+    novaLinha({
+      id: `${mecanica.id}-eq-${papel}-${usuario_id}-r${revisao}`,
+      mecanica_id: mecanica.id,
+      escopo: "equipe",
+      tipo_beneficiario: papel,
+      usuario_id,
+      premio: pr,
+      base: m,
+      valor: aplicada.valor,
+      revisao,
+      detalhes: {
+        meta: aplicada.meta,
+        percentual_atingido: aplicada.percentual,
+        valor_bruto_premio: bruto,
+      },
+    }),
+  );
 }
 
 type LinhaInput = {
@@ -272,6 +333,7 @@ type LinhaInput = {
   base: Metrica;
   valor: number;
   revisao: number;
+  detalhes?: Record<string, unknown>;
 };
 
 function novaLinha(i: LinhaInput): ApuracaoLinha {
@@ -289,7 +351,7 @@ function novaLinha(i: LinhaInput): ApuracaoLinha {
     base_quantidade: i.base.qtd,
     base_valor: i.base.valor,
     valor_premio: Math.round(i.valor * 100) / 100,
-    detalhes: {},
+    detalhes: i.detalhes ?? {},
     revisao: i.revisao,
   };
 }

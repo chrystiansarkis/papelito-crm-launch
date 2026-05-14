@@ -89,6 +89,49 @@ export function parseCsv(text: string): string[][] {
   return linhas;
 }
 
+export type MetaVendedorCsvRow = {
+  usuario_id: string;
+  nome: string;
+  papel: string;
+  meta: number | "";
+};
+
+export function vendedoresMetaToCsv(rows: MetaVendedorCsvRow[]): string {
+  const header = "usuario_id,nome,papel,meta";
+  const body = rows.map((r) =>
+    [r.usuario_id, r.nome, r.papel, r.meta === "" ? "" : String(r.meta)]
+      .map(escape)
+      .join(","),
+  );
+  return [header, ...body].join("\n");
+}
+
+// Extrai pares (usuario_id, meta) do CSV importado. Aceita header
+// usuario_id/id e meta/valor.
+export function extrairMetasDeVendedores(
+  csv: string,
+): Array<{ usuario_id: string; meta: number }> {
+  const linhas = parseCsv(csv).filter((l) => l.some((c) => c.trim() !== ""));
+  if (linhas.length === 0) return [];
+  const header = linhas[0].map((c) => c.trim().toLowerCase());
+  const colId = ["usuario_id", "id"]
+    .map((k) => header.indexOf(k))
+    .find((i) => i >= 0);
+  const colMeta = ["meta", "valor"]
+    .map((k) => header.indexOf(k))
+    .find((i) => i >= 0);
+  if (colId === undefined || colMeta === undefined) return [];
+  const out: Array<{ usuario_id: string; meta: number }> = [];
+  for (const r of linhas.slice(1)) {
+    const id = (r[colId] ?? "").trim();
+    const raw = (r[colMeta] ?? "").trim().replace(",", ".");
+    const meta = parseFloat(raw);
+    if (!id || !isFinite(meta) || meta < 0) continue;
+    out.push({ usuario_id: id, meta });
+  }
+  return out;
+}
+
 // Extrai IDs de produto da planilha importada. Aceita coluna "id" no header.
 // Se o arquivo veio sem header, considera a primeira coluna.
 export function extrairIdsDeProdutos(csv: string): string[] {

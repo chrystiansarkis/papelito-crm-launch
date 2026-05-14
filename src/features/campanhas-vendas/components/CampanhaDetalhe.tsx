@@ -16,6 +16,7 @@ import {
 import {
   CRITERIO_PDV_NOVO_LABEL,
   PAPEL_CONTATO_LABEL,
+  REGRA_META_LABEL,
   TIPO_BENEFICIARIO_LABEL,
   TIPO_MECANICA_LABEL,
   TIPO_PREMIO_LABEL,
@@ -242,6 +243,32 @@ export function CampanhaDetalhe({ campanha }: { campanha: Campanha }) {
                   : campanha.produtos.map((p) => p.nome_snapshot).join(", ") || "—"
               }
             />
+            <KV
+              label="Regra de meta"
+              value={
+                REGRA_META_LABEL[campanha.regra_meta] +
+                (campanha.regra_meta === "proporcional"
+                  ? ` (corte: ${campanha.meta_minima_proporcional}%)`
+                  : "")
+              }
+            />
+            {campanha.metas_gerais.length > 0 && (
+              <KV
+                label="Metas gerais"
+                value={campanha.metas_gerais
+                  .map((mg) => {
+                    const mec = campanha.mecanicas.find((m) => m.id === mg.mecanica_id);
+                    return `${mec ? TIPO_MECANICA_LABEL[mec.tipo] : "?"}: ${mg.valor.toLocaleString("pt-BR")}`;
+                  })
+                  .join(" · ")}
+              />
+            )}
+            {campanha.metas_vendedores.length > 0 && (
+              <KV
+                label="Metas individuais"
+                value={`${campanha.metas_vendedores.length} vendedor(es) com meta cadastrada`}
+              />
+            )}
             {campanha.observacoes && <KV label="Observações" value={campanha.observacoes} />}
           </div>
         </TabsContent>
@@ -411,6 +438,10 @@ export function CampanhaDetalhe({ campanha }: { campanha: Campanha }) {
                   </span>
                 </div>
 
+                {campanha.metas_gerais.length > 0 && (
+                  <ProgressoMetasGerais campanha={campanha} apuracao={apuracaoAtual} />
+                )}
+
                 {linhasEquipe.length > 0 && (
                   <ApuracaoTabela titulo="Equipe interna" linhas={linhasEquipe} />
                 )}
@@ -447,6 +478,60 @@ function KV({ label, value }: { label: string; value: string }) {
   );
 }
 
+function ProgressoMetasGerais({
+  campanha,
+  apuracao,
+}: {
+  campanha: Campanha;
+  apuracao: Campanha["apuracao"];
+}) {
+  return (
+    <div className="bg-white border border-gray-line rounded-md p-4 space-y-3">
+      <p className="text-[12px] font-semibold text-ink-soft uppercase tracking-wide">
+        Progresso vs meta geral
+      </p>
+      {campanha.metas_gerais.map((mg) => {
+        const mec = campanha.mecanicas.find((m) => m.id === mg.mecanica_id);
+        // Soma a maior base por participante (cada linha já agrega o que cabe).
+        // Para meta geral usamos a base do vendedor isolado (não dupla contagem).
+        const totalBase = apuracao
+          .filter(
+            (a) =>
+              a.mecanica_id === mg.mecanica_id && a.tipo_beneficiario === "vendedor",
+          )
+          .reduce((s, a) => {
+            const b =
+              mec?.tipo === "volume" && mec.unidade_volume === "valor_brl"
+                ? a.base_valor
+                : a.base_quantidade;
+            return s + b;
+          }, 0);
+        const pct = mg.valor > 0 ? totalBase / mg.valor : 0;
+        const pctClamped = Math.min(pct, 1.2);
+        return (
+          <div key={mg.mecanica_id} className="space-y-1">
+            <div className="flex items-center justify-between text-sm">
+              <span>{mec ? TIPO_MECANICA_LABEL[mec.tipo] : "?"}</span>
+              <span className="text-gray-text">
+                <b>{totalBase.toLocaleString("pt-BR")}</b> /{" "}
+                {mg.valor.toLocaleString("pt-BR")} ({Math.round(pct * 100)}%)
+              </span>
+            </div>
+            <div className="h-2 bg-gray-soft rounded overflow-hidden">
+              <div
+                className={
+                  pct >= 1 ? "bg-good h-full" : pct >= 0.7 ? "bg-warn h-full" : "bg-bad h-full"
+                }
+                style={{ width: `${Math.min(pctClamped * 100, 100)}%` }}
+              />
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function ApuracaoTabela({
   titulo,
   linhas,
@@ -465,6 +550,8 @@ function ApuracaoTabela({
             <th className="text-left px-3 py-2">Beneficiário</th>
             <th className="text-left px-3 py-2">Papel</th>
             <th className="text-left px-3 py-2">Base</th>
+            <th className="text-left px-3 py-2">Meta</th>
+            <th className="text-left px-3 py-2">% atingido</th>
             <th className="text-left px-3 py-2">Prêmio</th>
             <th className="text-left px-3 py-2">Valor</th>
           </tr>
@@ -478,6 +565,12 @@ function ApuracaoTabela({
                 : a.contato_id
                   ? contatoById(a.contato_id)?.nome
                   : "—";
+            const meta = a.detalhes?.meta as number | null | undefined;
+            const pct = a.detalhes?.percentual_atingido as number | null | undefined;
+            const pctTxt =
+              pct == null
+                ? "—"
+                : `${Math.round(pct * 100)}%`;
             return (
               <tr key={a.id} className="border-t border-gray-line">
                 <td className="px-3 py-2">{nome ?? "—"}</td>
@@ -488,6 +581,24 @@ function ApuracaoTabela({
                     : a.base_valor > 0
                       ? `R$ ${a.base_valor.toLocaleString("pt-BR")}`
                       : "—"}
+                </td>
+                <td className="px-3 py-2 text-gray-text">
+                  {meta != null ? meta.toLocaleString("pt-BR") : "—"}
+                </td>
+                <td className="px-3 py-2">
+                  <span
+                    className={
+                      pct == null
+                        ? "text-gray-text"
+                        : pct >= 1
+                          ? "text-good font-semibold"
+                          : pct >= 0.7
+                            ? "text-warn"
+                            : "text-bad"
+                    }
+                  >
+                    {pctTxt}
+                  </span>
                 </td>
                 <td className="px-3 py-2">
                   {TIPO_PREMIO_LABEL[a.tipo_premio]}

@@ -18,6 +18,7 @@ import {
   useTabelasPreco,
 } from "../hooks/useOrcamentoLookups";
 import { useSalvarOrcamento } from "../hooks/useSalvarOrcamento";
+import { RegistrarBonificacaoDialog } from "@/features/bonificacoes";
 import {
   salvarOrcamentoSchema,
   SALVAR_ORCAMENTO_INITIAL,
@@ -59,8 +60,11 @@ export function OrcamentoForm({ mode, orcamento, itensIniciais }: OrcamentoFormP
           produto_nome: it.produto_nome,
           unidade: it.unidade ?? "",
           qtd: it.qtd,
+          qtd_bonif: it.qtd_bonif ?? 0,
           vlr_unit: it.vlr_unit,
           vlr_desc: it.vlr_desc,
+          somente_caixa_master: false,
+          qtd_caixa_master: 1,
         })),
       };
     }
@@ -68,6 +72,7 @@ export function OrcamentoForm({ mode, orcamento, itensIniciais }: OrcamentoFormP
   });
   const [errors, setErrors] = useState<Errors>({});
   const [emailModalOpen, setEmailModalOpen] = useState(false);
+  const [bonifModal, setBonifModal] = useState<{ orcId: string; clienteId: string } | null>(null);
 
   function set<K extends keyof SalvarOrcamentoForm>(key: K, value: SalvarOrcamentoForm[K]) {
     setForm((p) => ({ ...p, [key]: value }));
@@ -105,10 +110,13 @@ export function OrcamentoForm({ mode, orcamento, itensIniciais }: OrcamentoFormP
 
   function persist(parsed: SalvarOrcamentoForm, statusOverride?: OrcamentoStatus) {
     const payload = statusOverride ? { ...parsed, status: statusOverride } : parsed;
+    const aprovacao = payload.status === "aprovado";
     mutation.mutate(payload, {
       onSuccess: (id) => {
         toast.success("Orcamento salvo");
-        if (mode === "create") {
+        if (aprovacao && id && payload.cliente_id) {
+          setBonifModal({ orcId: id, clienteId: payload.cliente_id });
+        } else if (mode === "create") {
           navigate(`/pedidos/${id}/editar`);
         }
       },
@@ -447,6 +455,18 @@ export function OrcamentoForm({ mode, orcamento, itensIniciais }: OrcamentoFormP
             // Apos enviar, persiste o orcamento com status 'enviado'
             persist({ ...form, status: "enviado" });
           }}
+        />
+      )}
+
+      {bonifModal && (
+        <RegistrarBonificacaoDialog
+          open={!!bonifModal}
+          onClose={() => {
+            setBonifModal(null);
+            if (mode === "create") navigate(`/pedidos/${bonifModal.orcId}/editar`);
+          }}
+          clienteId={bonifModal.clienteId}
+          origemOrcamentoId={bonifModal.orcId}
         />
       )}
     </div>

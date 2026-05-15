@@ -41,6 +41,7 @@ type OrcamentoItemRow = {
   produto_nome: string;
   unidade: string | null;
   qtd: number | string;
+  qtd_bonif: number | string | null;
   vlr_unit: number | string;
   vlr_desc: number | string;
   vlr_liq: number | string | null;
@@ -86,6 +87,7 @@ function rowToItem(r: OrcamentoItemRow): OrcamentoItem {
     produto_nome: r.produto_nome,
     unidade: r.unidade,
     qtd: num(r.qtd),
+    qtd_bonif: num(r.qtd_bonif),
     vlr_unit: num(r.vlr_unit),
     vlr_desc: num(r.vlr_desc),
     vlr_liq: num(r.vlr_liq),

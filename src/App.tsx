@@ -18,6 +18,9 @@ import CampanhasVendas from "@/pages/CampanhasVendas";
 import CampanhaVendasNova from "@/pages/CampanhaVendasNova";
 import CampanhaVendasEditar from "@/pages/CampanhaVendasEditar";
 import CampanhaVendas from "@/pages/CampanhaVendas";
+import ProdutoConfigPage from "@/pages/ProdutoConfig";
+import TabelasPrecoPage from "@/pages/TabelasPreco";
+import BonificacaoRegrasPage from "@/pages/BonificacaoRegras";
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 60_000, refetchOnWindowFocus: false } },
@@ -46,6 +49,9 @@ export default function App() {
               <Route path="/campanhas-vendas/nova" element={<CampanhaVendasNova />} />
               <Route path="/campanhas-vendas/:id/editar" element={<CampanhaVendasEditar />} />
               <Route path="/campanhas-vendas/:id" element={<CampanhaVendas />} />
+              <Route path="/admin/produtos" element={<ProdutoConfigPage />} />
+              <Route path="/tabelas-preco" element={<TabelasPrecoPage />} />
+              <Route path="/bonificacao-regras" element={<BonificacaoRegrasPage />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Route>
           </Routes>

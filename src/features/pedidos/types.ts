@@ -158,6 +158,7 @@ export type OrcamentoItem = {
   produto_nome: string;
   unidade: string | null;
   qtd: number;
+  qtd_bonif: number;
   vlr_unit: number;
   vlr_desc: number;
   vlr_liq: number;

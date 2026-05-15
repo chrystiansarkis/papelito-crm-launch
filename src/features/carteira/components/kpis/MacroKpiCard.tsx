@@ -15,6 +15,7 @@ export type MacroKpiCardProps = {
   valueClass?: string;
   subItems?: SubItem[];
   onClickValue?: () => void;
+  className?: string;
 };
 
 export function MacroKpiCard({
@@ -23,9 +24,10 @@ export function MacroKpiCard({
   valueClass,
   subItems = [],
   onClickValue,
+  className,
 }: MacroKpiCardProps) {
   return (
-    <div className="bg-gray-soft rounded-md p-3 flex flex-col">
+    <div className={cn("bg-gray-soft rounded-md p-3 flex flex-col", className)}>
       <div className="text-[11px] uppercase tracking-wide text-gray-text font-medium">
         {label}
       </div>

@@ -17,6 +17,16 @@ export const TIPO_CONTA_VALUES = [
   "Internacional",
   "Atacarejo",
 ] as const;
+
+// Protheus: tipo do cliente. R=Revenda, F=Consumidor final, S=Solidaria, X=Exportacao.
+// Defaults da Papelito: R.
+export const TIPO_PROTHEUS_VALUES = ["R", "F", "S", "X"] as const;
+export const TIPO_PROTHEUS_LABEL: Record<string, string> = {
+  R: "Revenda",
+  F: "Consumidor final",
+  S: "Solidária",
+  X: "Exportação",
+};
 export const SEGMENTO_VALUES = [
   "",
   "Cigarro",
@@ -153,6 +163,18 @@ export const novoClienteSchema = z.object({
   cobranca: enderecoSchema,
   contatos: z.array(contatoSchema).default([]),
   observacao: z.string().trim().max(2000).optional().or(z.literal("")),
+  // Dados fiscais Protheus (vao no payload da edge function).
+  tipo: z.enum(TIPO_PROTHEUS_VALUES).default("R"),
+  grupo_tributario: z.string().trim().min(1, "Informe o grupo tributário").max(20).default("C01"),
+  pais_protheus: z.string().trim().min(1, "Informe o código do país").max(10).default("105"),
+  pais_bacen: z.string().trim().min(1, "Informe o código BACEN").max(10).default("01058"),
+  vendedor_cod_vend: z
+    .string()
+    .trim()
+    .min(1, "Selecione o vendedor")
+    .refine((v) => v.replace(/\D/g, "").length === 11, { message: "Vendedor: CPF deve ter 11 dígitos" }),
+  // Tabela de preco do Salesforce. Opcional — pode ser definida depois.
+  tabela_preco_id: z.string().trim().max(50).optional().or(z.literal("")),
 });
 
 export type NovoClienteForm = z.infer<typeof novoClienteSchema>;
@@ -177,4 +199,10 @@ export const NOVO_CLIENTE_INITIAL: NovoClienteForm = {
   cobranca: { ...ENDERECO_INITIAL },
   contatos: [{ ...CONTATO_INITIAL, principal: true }],
   observacao: "",
+  tipo: "R",
+  grupo_tributario: "C01",
+  pais_protheus: "105",
+  pais_bacen: "01058",
+  vendedor_cod_vend: "",
+  tabela_preco_id: "",
 };

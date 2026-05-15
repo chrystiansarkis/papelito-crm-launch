@@ -67,6 +67,7 @@ export function OrcamentoItensEditor({
               <Th className="min-w-[260px]">Produto</Th>
               <Th className="w-20">Un</Th>
               <Th className="w-24 text-right">Qtd</Th>
+              <Th className="w-24 text-right">Bonif</Th>
               <Th className="w-32 text-right">Vlr unit</Th>
               <Th className="w-32 text-right">Desconto</Th>
               <Th className="w-32 text-right">Total</Th>
@@ -76,7 +77,7 @@ export function OrcamentoItensEditor({
           <tbody>
             {itens.length === 0 && (
               <tr>
-                <td colSpan={8} className="px-3 py-6 text-center text-[12.5px] text-gray-faint">
+                <td colSpan={9} className="px-3 py-6 text-center text-[12.5px] text-gray-faint">
                   Nenhum item. Clique em "Adicionar item" para comecar.
                 </td>
               </tr>
@@ -96,7 +97,7 @@ export function OrcamentoItensEditor({
           {itens.length > 0 && (
             <tfoot className="bg-gray-soft/40">
               <tr>
-                <td colSpan={4}></td>
+                <td colSpan={5}></td>
                 <td className="px-3 py-2 text-right text-[11.5px] text-gray-text">Subtotal</td>
                 <td className="px-3 py-2 text-right text-[11.5px] text-gray-text">{formatMoney(totals.desconto)}</td>
                 <td className="px-3 py-2 text-right text-[12px] font-semibold text-ink tabular">{formatMoney(totals.total)}</td>
@@ -158,6 +159,12 @@ function Row({
   );
 
   const total = (Number(item.qtd) || 0) * (Number(item.vlr_unit) || 0) - (Number(item.vlr_desc) || 0);
+  const qtdStep = item.somente_caixa_master ? Math.max(1, item.qtd_caixa_master) : 1;
+  const totalFisico = (Number(item.qtd) || 0) + (Number(item.qtd_bonif) || 0);
+  const caixaMasterOk =
+    !item.somente_caixa_master ||
+    item.qtd_caixa_master <= 1 ||
+    (totalFisico >= item.qtd_caixa_master && totalFisico % item.qtd_caixa_master === 0);
 
   return (
     <tr className="border-b border-gray-line">
@@ -167,11 +174,17 @@ function Row({
           value={item.cod_produto ?? ""}
           onChange={(v, opt) => {
             const prod = (prodQuery.data ?? []).find((p) => p.cod_produto === v);
+            const cx = Math.max(1, prod?.qtd_caixa_master ?? 1);
+            const exigeMaster = prod?.somente_caixa_master === true;
             onPatch({
               cod_produto: v,
               produto_nome: prod?.nome ?? opt?.label ?? item.produto_nome,
               unidade: prod?.unidade ?? item.unidade,
               vlr_unit: prod?.vlr_unit ?? 0,
+              vlr_desc: prod?.vlr_desc_sugerido ?? 0,
+              somente_caixa_master: exigeMaster,
+              qtd_caixa_master: cx,
+              qtd: exigeMaster && cx > 1 ? cx : item.qtd || 1,
             });
           }}
           options={opts}
@@ -186,6 +199,16 @@ function Row({
             {item.produto_nome}
           </p>
         )}
+        {item.somente_caixa_master && item.qtd_caixa_master > 1 && (
+          <p
+            className={
+              "mt-0.5 text-[10.5px] " + (caixaMasterOk ? "text-brand" : "text-bad")
+            }
+          >
+            Caixa master {item.qtd_caixa_master} · total fisico {totalFisico}
+            {caixaMasterOk ? " ✓" : " ✗"}
+          </p>
+        )}
         {errors[`itens.${idx}.produto_nome`] && (
           <p className="text-[10.5px] text-bad mt-0.5">{errors[`itens.${idx}.produto_nome`]}</p>
         )}
@@ -196,7 +219,16 @@ function Row({
         </div>
       </td>
       <td className="px-3 py-2 align-top">
-        <NumberCell value={item.qtd} step={1} onChange={(n) => onPatch({ qtd: n })} />
+        <NumberCell value={item.qtd} step={qtdStep} onChange={(n) => onPatch({ qtd: n })} />
+        {errors[`itens.${idx}.qtd`] && (
+          <p className="text-[10.5px] text-bad mt-0.5">{errors[`itens.${idx}.qtd`]}</p>
+        )}
+      </td>
+      <td className="px-3 py-2 align-top">
+        <NumberCell value={item.qtd_bonif} step={qtdStep} onChange={(n) => onPatch({ qtd_bonif: n })} />
+        {errors[`itens.${idx}.qtd_bonif`] && (
+          <p className="text-[10.5px] text-bad mt-0.5">{errors[`itens.${idx}.qtd_bonif`]}</p>
+        )}
       </td>
       <td className="px-3 py-2 text-right text-[12px] text-ink tabular whitespace-nowrap align-top">
         {item.cod_produto ? formatMoney(item.vlr_unit) : "—"}

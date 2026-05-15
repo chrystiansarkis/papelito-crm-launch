@@ -13,12 +13,17 @@ export type ProtheusSyncResult = {
   ok: boolean;
   protheus_status: number;
   protheus_response: unknown;
+  protheus_cod?: string | null;
+  already_synced?: boolean;
   error?: string | null;
 };
 
-export async function enviarClienteProtheus(clienteId: string): Promise<ProtheusSyncResult> {
+export async function enviarClienteProtheus(
+  clienteId: string,
+  options: { force?: boolean } = {},
+): Promise<ProtheusSyncResult> {
   const { data, error } = await supabase.functions.invoke("proxy-protheus-criar-cliente", {
-    body: { cliente_id: clienteId },
+    body: { cliente_id: clienteId, force: options.force ?? false },
   });
 
   if (error) {

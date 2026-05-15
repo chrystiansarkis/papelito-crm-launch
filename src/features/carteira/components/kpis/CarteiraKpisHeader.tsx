@@ -87,8 +87,8 @@ export function CarteiraKpisHeader({
         </div>
       )}
 
-      {/* Linha 1 — 5 KPIs macro */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2">
+      {/* Linha 1 — 5 KPIs macro (quebram em linha quando não cabem) */}
+      <div className="flex flex-wrap gap-2">
         <MacroKpiCard
           label="Total clientes"
           value={loading ? "—" : formatMilhar(macro.total)}
@@ -109,21 +109,25 @@ export function CarteiraKpisHeader({
               onClick: () => setFilter((f) => toggleAnoCompra(f, "comprou_2026")),
             },
           ]}
+          className="flex-1 basis-[220px] min-w-[220px]"
         />
         <MacroKpiCard
           label="Faturamento 2025"
           value={formatMoneyM(macro.fat_2025_total)}
           subItems={makeGrupoSubItems("2025", (g) => formatMoneyShort(macro.por_grupo_2025[g]))}
+          className="flex-1 basis-[350px] min-w-[350px]"
         />
         <MacroKpiCard
           label="Faturamento 2026 YTD"
           value={formatMoneyM(macro.fat_ytd_total)}
           subItems={makeGrupoSubItems("ytd", (g) => formatMoneyShort(macro.por_grupo_ytd[g]))}
+          className="flex-1 basis-[350px] min-w-[350px]"
         />
         <MacroKpiCard
           label="Tendência 2026"
           value={formatMoneyM(macro.tendencia_total)}
           subItems={makeGrupoSubItems("ytd", (g) => formatMoneyShort(macro.tendencia_por_grupo[g]))}
+          className="flex-1 basis-[350px] min-w-[350px]"
         />
         <MacroKpiCard
           label="Desvio vs 2025"
@@ -134,6 +138,7 @@ export function CarteiraKpisHeader({
             (g) => formatPctSigned(macro.desvio_por_grupo[g]),
             (g) => desvioColor(macro.desvio_por_grupo[g]),
           )}
+          className="flex-1 basis-[220px] min-w-[220px]"
         />
       </div>
 

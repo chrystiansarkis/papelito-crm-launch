@@ -21,20 +21,43 @@ const uuidSchema = z
   .trim()
   .regex(/^[0-9a-f-]{36}$/i, "UUID invalido");
 
-export const orcamentoItemSchema = z.object({
-  // cod_produto pode ser vazio caso o vendedor digite produto manual
-  cod_produto: z
-    .string()
-    .trim()
-    .optional()
-    .or(z.literal(""))
-    .refine((v) => !v || /^[0-9a-f-]{36}$/i.test(v), { message: "Produto: UUID invalido" }),
-  produto_nome: z.string().trim().min(1, "Informe o produto").max(255),
-  unidade: z.string().trim().max(20).optional().or(z.literal("")),
-  qtd: z.number().positive("Qtd > 0"),
-  vlr_unit: z.number().nonnegative("Vlr unit >= 0"),
-  vlr_desc: z.number().nonnegative("Desconto >= 0").default(0),
-});
+export const orcamentoItemSchema = z
+  .object({
+    // cod_produto pode ser vazio caso o vendedor digite produto manual
+    cod_produto: z
+      .string()
+      .trim()
+      .optional()
+      .or(z.literal(""))
+      .refine((v) => !v || /^[0-9a-f-]{36}$/i.test(v), { message: "Produto: UUID invalido" }),
+    produto_nome: z.string().trim().min(1, "Informe o produto").max(255),
+    unidade: z.string().trim().max(20).optional().or(z.literal("")),
+    qtd: z.number().positive("Qtd > 0"),
+    qtd_bonif: z.number().nonnegative("Bonif >= 0").default(0),
+    vlr_unit: z.number().nonnegative("Vlr unit >= 0"),
+    vlr_desc: z.number().nonnegative("Desconto >= 0").default(0),
+    // populados pelo lookup (nao vao para o payload, apenas validam no client)
+    somente_caixa_master: z.boolean().default(false),
+    qtd_caixa_master: z.number().int().min(1).default(1),
+  })
+  .superRefine((val, ctx) => {
+    if (val.somente_caixa_master && val.qtd_caixa_master > 1) {
+      const totalFisico = val.qtd + val.qtd_bonif;
+      if (totalFisico < val.qtd_caixa_master) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["qtd"],
+          message: `Total (qtd + bonif) deve ser >= ${val.qtd_caixa_master} (caixa master)`,
+        });
+      } else if (totalFisico % val.qtd_caixa_master !== 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["qtd"],
+          message: `Total (qtd + bonif) deve ser multiplo de ${val.qtd_caixa_master} (caixa master)`,
+        });
+      }
+    }
+  });
 export type OrcamentoItemForm = z.infer<typeof orcamentoItemSchema>;
 
 export const ORCAMENTO_ITEM_INITIAL: OrcamentoItemForm = {
@@ -42,8 +65,11 @@ export const ORCAMENTO_ITEM_INITIAL: OrcamentoItemForm = {
   produto_nome: "",
   unidade: "",
   qtd: 1,
+  qtd_bonif: 0,
   vlr_unit: 0,
   vlr_desc: 0,
+  somente_caixa_master: false,
+  qtd_caixa_master: 1,
 };
 
 export const salvarOrcamentoSchema = z

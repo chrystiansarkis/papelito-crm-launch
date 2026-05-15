@@ -8,12 +8,14 @@
 //
 // Pipeline:
 //   1. Valida JWT (verify_jwt=true no deploy)
-//   2. Parse do body com zod (cliente_id obrigatório)
+//   2. Parse do body com zod (cliente_id + force opcional)
 //   3. Cria supabase client com o JWT do caller -> queries respeitam RLS
-//   4. Lê o cliente do banco (RLS garante que o caller pode ver)
-//   5. Monta o payload Protheus a partir dos dados do banco
-//   6. POST /proxyProtheus/criarCliente com X-API-Key (do secret)
-//   7. Loga resultado via fn_cliente_crm_protheus_log (status/response/erro)
+//   4. Lê o cliente do banco com campos fiscais novos
+//   5. vendedor_cod_vend (text) ja eh o CPF do vendedor (staging.DIM_VENDEDORES_PROTHEUS."COD_VEND")
+//      — valida formato 11 digitos antes de enviar
+//   6. Sem force: se ja esta 'ok' retorna sem chamar Protheus
+//   7. POST /proxyProtheus/criarCliente com X-API-Key
+//   8. Loga resultado via fn_cliente_crm_protheus_log (status/response/erro/cod)
 //
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { z } from "npm:zod@3.23.8";
@@ -34,18 +36,10 @@ function jsonResponse(body: unknown, status = 200): Response {
 
 const inputSchema = z.object({
   cliente_id: z.string().uuid(),
+  force: z.boolean().optional().default(false),
 });
 
 const PROTHEUS_URL = "https://api.papelito.com/proxyProtheus/criarCliente";
-
-// Campos fixos do payload Protheus (hardcoded por enquanto — parametrizar depois)
-const PROTHEUS_DEFAULTS = {
-  tipo: "R",
-  grupoTributario: "C01",
-  paisBacen: "01058",
-  pais: "105",
-  vendedor: "000004",
-} as const;
 
 type ClienteRow = {
   id: string;
@@ -61,15 +55,21 @@ type ClienteRow = {
   entrega_cidade: string | null;
   entrega_uf: string | null;
   entrega_cep: string | null;
+  tipo: string;
+  grupo_tributario: string;
+  pais_protheus: string;
+  pais_bacen: string;
+  vendedor_cod_vend: string | null;
+  protheus_sync_status: string | null;
 };
 
-function buildProtheusPayload(c: ClienteRow): Record<string, unknown> {
+function buildProtheusPayload(c: ClienteRow, vendedorCpf: string): Record<string, unknown> {
   const enderecoCompleto = [c.entrega_logradouro, c.entrega_numero]
     .filter((p) => !!p && String(p).trim().length > 0)
     .join(", ");
 
   return {
-    tipo: PROTHEUS_DEFAULTS.tipo,
+    tipo: c.tipo,
     pessoa: c.tipo_pessoa ?? "J",
     cgc: (c.cnpj_cpf ?? "").replace(/\D/g, ""),
     razaoSocial: c.nome ?? "",
@@ -82,12 +82,25 @@ function buildProtheusPayload(c: ClienteRow): Record<string, unknown> {
     inscricaoEstadual: c.inscricao_estadual && c.inscricao_estadual.trim().length > 0
       ? c.inscricao_estadual
       : "ISENTO",
-    pais: PROTHEUS_DEFAULTS.pais,
+    pais: c.pais_protheus,
     email: c.email_cobranca ?? "",
-    grupoTributario: PROTHEUS_DEFAULTS.grupoTributario,
-    paisBacen: PROTHEUS_DEFAULTS.paisBacen,
-    vendedor: PROTHEUS_DEFAULTS.vendedor,
+    grupoTributario: c.grupo_tributario,
+    paisBacen: c.pais_bacen,
+    vendedor: vendedorCpf,
   };
+}
+
+// Extrai codigo do cliente Protheus do JSON de resposta. Conservador: tenta
+// campos comuns; se nao achar, deixa null (status segue 'ok' assim mesmo).
+function extractProtheusCod(resp: unknown): string | null {
+  if (!resp || typeof resp !== "object") return null;
+  const r = resp as Record<string, unknown>;
+  const candidates = [r.cod, r.codigo, r.codigoCliente, r.codigo_cliente, r.code, r.cliente];
+  for (const c of candidates) {
+    if (typeof c === "string" && c.trim().length > 0) return c.trim();
+    if (typeof c === "number") return String(c);
+  }
+  return null;
 }
 
 Deno.serve(async (req: Request) => {
@@ -114,7 +127,6 @@ Deno.serve(async (req: Request) => {
     return jsonResponse({ error: "Missing bearer token" }, 401);
   }
 
-  // 1) Parse body
   let parsed: z.infer<typeof inputSchema>;
   try {
     const raw = await req.json();
@@ -129,18 +141,16 @@ Deno.serve(async (req: Request) => {
     );
   }
 
-  // 2) Client com JWT do caller — RLS aplica nas queries
   const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     global: { headers: { Authorization: authHeader } },
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
-  // 3) Buscar cliente (RLS valida acesso)
   const { data: cliente, error: cliErr } = await supabase
     .schema("crm")
     .from("cliente_crm")
     .select(
-      "id, nome, nome_fantasia, cnpj_cpf, tipo_pessoa, inscricao_estadual, email_cobranca, entrega_logradouro, entrega_numero, entrega_bairro, entrega_cidade, entrega_uf, entrega_cep",
+      "id, nome, nome_fantasia, cnpj_cpf, tipo_pessoa, inscricao_estadual, email_cobranca, entrega_logradouro, entrega_numero, entrega_bairro, entrega_cidade, entrega_uf, entrega_cep, tipo, grupo_tributario, pais_protheus, pais_bacen, vendedor_cod_vend, protheus_sync_status",
     )
     .eq("id", parsed.cliente_id)
     .maybeSingle<ClienteRow>();
@@ -158,8 +168,26 @@ Deno.serve(async (req: Request) => {
     );
   }
 
-  // 4) Monta payload e chama Protheus
-  const protheusPayload = buildProtheusPayload(cliente);
+  // Idempotencia sem force: se ja esta sincronizado, nao reenvia.
+  if (!parsed.force && cliente.protheus_sync_status === "ok") {
+    return jsonResponse({
+      ok: true,
+      already_synced: true,
+      protheus_status: 0,
+      protheus_response: null,
+    });
+  }
+
+  // vendedor_cod_vend ja eh o CPF (text, 11 digitos). Apenas validar formato.
+  const vendedorCpf = (cliente.vendedor_cod_vend ?? "").replace(/\D/g, "");
+  if (vendedorCpf.length !== 11) {
+    return jsonResponse(
+      { error: "Cliente sem CPF de vendedor valido em vendedor_cod_vend (11 digitos)" },
+      422,
+    );
+  }
+
+  const protheusPayload = buildProtheusPayload(cliente, vendedorCpf);
 
   let respStatus = 0;
   let respText = "";
@@ -189,8 +217,8 @@ Deno.serve(async (req: Request) => {
     : ok
       ? null
       : `protheus HTTP ${respStatus}: ${respText.slice(0, 500)}`;
+  const protheusCod = ok ? extractProtheusCod(respJson) : null;
 
-  // 5) Log do resultado no cliente
   const logPayload = {
     p_cliente_id: parsed.cliente_id,
     p_status: status,
@@ -200,6 +228,7 @@ Deno.serve(async (req: Request) => {
       response: respJson,
     },
     p_error: errorMsg,
+    p_protheus_cod: protheusCod,
   };
   const { error: logErr } = await supabase
     .schema("public")
@@ -210,6 +239,7 @@ Deno.serve(async (req: Request) => {
       ok,
       protheus_status: respStatus,
       protheus_response: respJson,
+      protheus_cod: protheusCod,
       warn_log: logErr.message,
     }, ok ? 200 : 502);
   }
@@ -218,6 +248,7 @@ Deno.serve(async (req: Request) => {
     ok,
     protheus_status: respStatus,
     protheus_response: respJson,
+    protheus_cod: protheusCod,
     error: errorMsg,
   }, ok ? 200 : 502);
 });

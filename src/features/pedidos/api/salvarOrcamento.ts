@@ -24,6 +24,7 @@ export async function salvarOrcamento(input: SalvarOrcamentoForm): Promise<strin
       produto_nome: it.produto_nome,
       unidade: it.unidade || null,
       qtd: it.qtd,
+      qtd_bonif: it.qtd_bonif ?? 0,
       vlr_unit: it.vlr_unit,
       vlr_desc: it.vlr_desc ?? 0,
     })),

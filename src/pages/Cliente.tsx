@@ -15,6 +15,8 @@ import {
   VendasMixTab,
   useFichaCliente,
 } from "@/features/cliente";
+import { ProtheusStatusCard } from "@/features/carteira/components/ProtheusStatusCard";
+import { BonificacoesTab } from "@/features/bonificacoes";
 
 export default function Cliente() {
   const { id } = useParams<{ id: string }>();
@@ -64,13 +66,15 @@ export default function Cliente() {
         <ClienteTabs ativa={tab} onChange={setTab} />
       </div>
 
-      <div className="p-6">
+      <div className="p-6 space-y-4">
+        {id && <ProtheusStatusCard clienteId={id} />}
         {tab === "visao" && <VisaoGeralTab ficha={ficha} />}
         {tab === "vendas" && id && <VendasMixTab clienteId={id} ficha={ficha} />}
         {tab === "pedidos" && (
           <PedidosCard pedidos={ficha.pedidos.data ?? []} />
         )}
         {tab === "financeiro" && <FinanceiroCard cliente={cliente} />}
+        {tab === "bonificacoes" && id && <BonificacoesTab clienteId={id} />}
         {tab === "contatos" && (
           <ContatosCard contatos={ficha.contatos.data ?? []} />
         )}

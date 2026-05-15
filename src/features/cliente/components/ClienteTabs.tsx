@@ -8,13 +8,15 @@ export type TabKey =
   | "financeiro"
   | "contatos"
   | "atendimentos"
-  | "anotacoes";
+  | "anotacoes"
+  | "bonificacoes";
 
 export const TABS: { key: TabKey; label: string }[] = [
   { key: "visao", label: "Visão geral" },
   { key: "vendas", label: "Vendas & mix" },
   { key: "pedidos", label: "Pedidos" },
   { key: "financeiro", label: "Financeiro" },
+  { key: "bonificacoes", label: "Bonificações" },
   { key: "contatos", label: "Contatos" },
   { key: "atendimentos", label: "Atendimentos" },
   { key: "anotacoes", label: "Anotações" },

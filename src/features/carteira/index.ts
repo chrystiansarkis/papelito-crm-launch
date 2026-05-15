@@ -17,10 +17,16 @@ export {
   useCarteiraKpiClientes,
 } from "./hooks/useCarteira";
 export { CarteiraKpisHeader } from "./components/kpis/CarteiraKpisHeader";
-export { useCadastrarCliente } from "./hooks/useCadastrarCliente";
+export { useCadastrarCliente, type CadastroEtapa, type CadastrarClienteResult } from "./hooks/useCadastrarCliente";
+export { useForcarSyncProtheus } from "./hooks/useForcarSyncProtheus";
+export { useVendedoresProtheus } from "./hooks/useVendedoresProtheus";
+export { useTabelasPreco } from "./hooks/useTabelasPreco";
 export { useUfs, useCidades, useMatrizSearch } from "./hooks/useLookups";
 export { SearchSelect } from "./components/SearchSelect";
 export type { UfOption, CidadeOption, MatrizOption } from "./api/lookups";
+export type { VendedorProtheusOption } from "./api/listVendedoresProtheus";
+export type { TabelaPrecoOption } from "./api/listTabelasPreco";
+export type { ProtheusSyncResult } from "./api/protheus";
 export {
   novoClienteSchema,
   NOVO_CLIENTE_INITIAL,
@@ -28,6 +34,8 @@ export {
   ENDERECO_INITIAL,
   TIPO_CONTA_VALUES,
   TIPO_PESSOA_VALUES,
+  TIPO_PROTHEUS_VALUES,
+  TIPO_PROTHEUS_LABEL,
   SEGMENTO_VALUES,
   FUNCAO_CONTATO_VALUES,
   FUNCAO_CONTATO_LABEL,

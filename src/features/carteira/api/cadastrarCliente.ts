@@ -51,6 +51,12 @@ export async function cadastrarClienteCrm(input: NovoClienteForm): Promise<strin
     cobranca: safe.cobranca_mesma_entrega ? null : safe.cobranca,
     contatos: contatosPayload,
     observacao: safe.observacao || null,
+    tipo: safe.tipo,
+    grupo_tributario: safe.grupo_tributario,
+    pais_protheus: safe.pais_protheus,
+    pais_bacen: safe.pais_bacen,
+    vendedor_cod_vend: safe.vendedor_cod_vend,
+    tabela_preco_id: safe.tabela_preco_id || null,
   };
 
   const { data, error } = await publicDb.rpc(

@@ -41,12 +41,17 @@ export type ProdutoLookup = {
   unidade: string | null;
   grupo: string | null;
   vlr_unit: number;
+  vlr_desc_sugerido: number;
+  somente_caixa_master: boolean;
+  qtd_caixa_master: number;
 };
 
 // Busca produtos elegiveis para o orcamento, ja com o preco unitario da tabela
 // de preco escolhida. Usa a RPC public.fn_buscar_produtos_orcamento (SECURITY
 // DEFINER) que faz o join analytics.DIM_PRODUTOS x staging.DIM_PRECOS_*. Sem
 // tabela escolhida, retorna lista vazia (vendedor precisa escolher antes).
+// A RPC tambem devolve o desconto sugerido pela tabela e a config de caixa
+// master quando aplicaveis.
 export async function searchProdutosOrcamento(
   tabelaPrecoId: string,
   term: string,
@@ -64,6 +69,9 @@ export async function searchProdutosOrcamento(
     unidade: string | null;
     grupo: string | null;
     vlr_unit: number | string;
+    vlr_desc_sugerido: number | string | null;
+    somente_caixa_master: boolean | null;
+    qtd_caixa_master: number | null;
   };
   return ((data ?? []) as Row[]).map((r) => ({
     cod_produto: r.cod_produto,
@@ -71,6 +79,9 @@ export async function searchProdutosOrcamento(
     unidade: r.unidade,
     grupo: r.grupo,
     vlr_unit: Number(r.vlr_unit) || 0,
+    vlr_desc_sugerido: Number(r.vlr_desc_sugerido ?? 0) || 0,
+    somente_caixa_master: r.somente_caixa_master === true,
+    qtd_caixa_master: Math.max(1, Number(r.qtd_caixa_master ?? 1) || 1),
   }));
 }
 

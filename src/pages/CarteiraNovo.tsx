@@ -24,15 +24,24 @@ import {
   SearchSelect,
   TIPO_CONTA_VALUES,
   TIPO_PESSOA_VALUES,
+  TIPO_PROTHEUS_LABEL,
+  TIPO_PROTHEUS_VALUES,
   novoClienteSchema,
   useCadastrarCliente,
   useCidades,
   useMatrizSearch,
+  useTabelasPreco,
   useUfs,
+  useVendedoresProtheus,
   type Contato,
   type Endereco,
   type NovoClienteForm,
 } from "@/features/carteira";
+import {
+  useRegras,
+  useDefinirRegrasCliente,
+  TIPO_REGRA_LABEL,
+} from "@/features/bonificacoes";
 
 type Errors = Record<string, string>;
 
@@ -40,7 +49,9 @@ export default function CarteiraNovo() {
   const navigate = useNavigate();
   const [form, setForm] = useState<NovoClienteForm>(NOVO_CLIENTE_INITIAL);
   const [errors, setErrors] = useState<Errors>({});
-  const mutation = useCadastrarCliente();
+  const [regrasBonificacaoIds, setRegrasBonificacaoIds] = useState<string[]>([]);
+  const { cadastrar, etapa, isPending } = useCadastrarCliente();
+  const definirRegras = useDefinirRegrasCliente();
 
   function set<K extends keyof NovoClienteForm>(key: K, value: NovoClienteForm[K]) {
     setForm((p) => ({ ...p, [key]: value }));
@@ -93,19 +104,52 @@ export default function CarteiraNovo() {
       toast.error("Confira os campos do formulário");
       return;
     }
-    mutation.mutate(parsed.data, {
-      onSuccess: () => {
-        toast.success("Cliente cadastrado", {
-          description: "Rode REFRESH MATERIALIZED VIEW public.vw_carteira para vê-lo na lista.",
-        });
-        navigate("/carteira");
+    void cadastrar(parsed.data, {
+      onSuccess: async ({ clienteId, protheus }) => {
+        if (protheus.ok) {
+          const cod = protheus.protheus_cod;
+          toast.success("Cliente cadastrado e enviado ao Protheus", {
+            description: cod ? `Código Protheus: ${cod}` : "Sincronização concluída.",
+          });
+        } else {
+          const msg = protheus.error ?? "Falha desconhecida ao sincronizar";
+          toast.error("Cliente salvo no CRM, mas falhou ao enviar ao Protheus", {
+            description: msg.length > 240 ? msg.slice(0, 240) + "…" : msg,
+          });
+        }
+        // Vincula regras de bonificação selecionadas. Falha aqui não bloqueia
+        // o cadastro; o vendedor pode reaplicar depois pelo painel da regra.
+        if (regrasBonificacaoIds.length > 0) {
+          try {
+            await definirRegras.mutateAsync({
+              clienteId,
+              regraIds: regrasBonificacaoIds,
+            });
+          } catch {
+            // erro ja virou toast pelo hook
+          }
+        }
+        navigate(`/cliente/${clienteId}`);
       },
-      onError: (e: unknown) => {
-        const msg = e instanceof Error ? e.message : "Erro desconhecido";
-        toast.error("Não foi possível salvar", { description: msg });
+      onError: (e: Error) => {
+        toast.error("Não foi possível salvar o cliente", { description: e.message });
       },
     });
   }
+
+  // Toast informativo da transicao salvando -> sincronizando.
+  useEffect(() => {
+    if (etapa === "sincronizando") {
+      toast.info("Cliente salvo, sincronizando com Protheus…");
+    }
+  }, [etapa]);
+
+  const submitLabel =
+    etapa === "salvando"
+      ? "Salvando…"
+      : etapa === "sincronizando"
+        ? "Enviando ao Protheus…"
+        : "Cadastrar cliente";
 
   return (
     <div className="flex flex-col min-h-full">
@@ -127,40 +171,48 @@ export default function CarteiraNovo() {
         </div>
 
         <form onSubmit={onSubmit} noValidate className="space-y-6">
-          <SecaoIdentificacao form={form} setField={set} errors={errors} />
-          <SecaoVendaPdv form={form} setField={set} errors={errors} />
-          <SecaoEndereco
-            label="Endereço de entrega"
-            endereco={form.entrega}
-            onChange={setEntrega}
-            errorPrefix="entrega"
-            errors={errors}
-          />
-          <SecaoCobranca
-            mesma={form.cobranca_mesma_entrega}
-            cobranca={form.cobranca}
-            onToggle={(v) => set("cobranca_mesma_entrega", v)}
-            onChange={setCobranca}
-            errors={errors}
-          />
-          <SecaoContatos contatos={form.contatos} onPatch={setContato} onAdd={addContato} onRemove={removeContato} errors={errors} />
-          <SecaoObservacao value={form.observacao ?? ""} onChange={(v) => set("observacao", v)} error={errors["observacao"]} />
+          <fieldset disabled={isPending} className="space-y-6 disabled:opacity-95">
+            <SecaoIdentificacao form={form} setField={set} errors={errors} />
+            <SecaoDadosFiscaisProtheus form={form} setField={set} errors={errors} />
+            <SecaoVendaPdv form={form} setField={set} errors={errors} />
+            <SecaoEndereco
+              label="Endereço de entrega"
+              endereco={form.entrega}
+              onChange={setEntrega}
+              errorPrefix="entrega"
+              errors={errors}
+            />
+            <SecaoCobranca
+              mesma={form.cobranca_mesma_entrega}
+              cobranca={form.cobranca}
+              onToggle={(v) => set("cobranca_mesma_entrega", v)}
+              onChange={setCobranca}
+              errors={errors}
+            />
+            <SecaoContatos contatos={form.contatos} onPatch={setContato} onAdd={addContato} onRemove={removeContato} errors={errors} />
+            <SecaoRegrasBonificacao
+              value={regrasBonificacaoIds}
+              onChange={setRegrasBonificacaoIds}
+            />
+            <SecaoObservacao value={form.observacao ?? ""} onChange={(v) => set("observacao", v)} error={errors["observacao"]} />
+          </fieldset>
 
           <div className="flex items-center justify-end gap-3 pt-2 border-t border-gray-line">
             <button
               type="button"
               onClick={() => navigate(-1)}
               className="px-4 py-2 text-[13px] text-gray-text hover:text-ink transition-colors"
-              disabled={mutation.isPending}
+              disabled={isPending}
             >
               Cancelar
             </button>
             <button
               type="submit"
-              disabled={mutation.isPending}
+              disabled={isPending}
+              aria-busy={isPending}
               className="px-4 py-2 text-[13px] font-semibold bg-brand hover:bg-[#E5B814] active:bg-brand-deep text-ink rounded-md transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {mutation.isPending ? "Salvando..." : "Cadastrar cliente"}
+              {submitLabel}
             </button>
           </div>
         </form>
@@ -303,6 +355,99 @@ function SecaoVendaPdv({
         </Field>
         <Field label="Qtd. PDVs com Papelito" error={errors["qtd_pdv_papelito"]}>
           <NumberInput value={form.qtd_pdv_papelito} onChange={(v) => setField("qtd_pdv_papelito", v)} />
+        </Field>
+      </Grid>
+    </Section>
+  );
+}
+
+function SecaoDadosFiscaisProtheus({
+  form,
+  setField,
+  errors,
+}: {
+  form: NovoClienteForm;
+  setField: <K extends keyof NovoClienteForm>(k: K, v: NovoClienteForm[K]) => void;
+  errors: Errors;
+}) {
+  const vendedoresQuery = useVendedoresProtheus();
+  const tabelasQuery = useTabelasPreco();
+  const vendedorOptions = useMemo(
+    () =>
+      (vendedoresQuery.data ?? []).map((v) => ({
+        value: v.cod_vend,
+        label: v.nome,
+        hint: `CPF ${v.cod_vend}`,
+      })),
+    [vendedoresQuery.data],
+  );
+  const tabelaPrecoOptions = useMemo(
+    () =>
+      (tabelasQuery.data ?? []).map((t) => ({
+        value: t.id,
+        label: t.nome,
+      })),
+    [tabelasQuery.data],
+  );
+
+  return (
+    <Section
+      title="Dados fiscais (Protheus)"
+      subtitle="Esses campos vão no payload enviado ao Protheus. Defaults preenchidos para revenda nacional."
+    >
+      <Grid>
+        <Field label="Tipo" required error={errors["tipo"]}>
+          <Select value={form.tipo} onChange={(v) => setField("tipo", v as NovoClienteForm["tipo"])}>
+            {TIPO_PROTHEUS_VALUES.map((v) => (
+              <option key={v} value={v}>
+                {v} — {TIPO_PROTHEUS_LABEL[v] ?? v}
+              </option>
+            ))}
+          </Select>
+        </Field>
+        <Field label="Grupo tributário" required error={errors["grupo_tributario"]}>
+          <Input
+            value={form.grupo_tributario}
+            onChange={(v) => setField("grupo_tributario", v)}
+            maxLength={20}
+            placeholder="C01"
+          />
+        </Field>
+        <Field label="País (código)" required error={errors["pais_protheus"]}>
+          <Input
+            value={form.pais_protheus}
+            onChange={(v) => setField("pais_protheus", v)}
+            maxLength={10}
+            placeholder="105"
+          />
+        </Field>
+        <Field label="País BACEN" required error={errors["pais_bacen"]}>
+          <Input
+            value={form.pais_bacen}
+            onChange={(v) => setField("pais_bacen", v)}
+            maxLength={10}
+            placeholder="01058"
+          />
+        </Field>
+        <Field label="Vendedor (Protheus)" required error={errors["vendedor_cod_vend"]} cols={2}>
+          <SearchSelect
+            value={form.vendedor_cod_vend}
+            onChange={(v) => setField("vendedor_cod_vend", v)}
+            options={vendedorOptions}
+            placeholder="Selecione o vendedor responsável"
+            loading={vendedoresQuery.isLoading}
+            emptyLabel={vendedoresQuery.isLoading ? "Carregando vendedores…" : "Nenhum vendedor ativo"}
+          />
+        </Field>
+        <Field label="Tabela de preço (Salesforce)" error={errors["tabela_preco_id"]} cols={2}>
+          <SearchSelect
+            value={form.tabela_preco_id ?? ""}
+            onChange={(v) => setField("tabela_preco_id", v)}
+            options={tabelaPrecoOptions}
+            placeholder="Selecione a tabela de preço"
+            loading={tabelasQuery.isLoading}
+            emptyLabel={tabelasQuery.isLoading ? "Carregando tabelas…" : "Nenhuma tabela ativa"}
+          />
         </Field>
       </Grid>
     </Section>
@@ -621,6 +766,91 @@ function SecaoObservacao({
           className="w-full px-3 py-2 text-[13px] bg-white border border-gray-line rounded-md text-ink focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand-soft transition-colors"
         />
       </Field>
+    </Section>
+  );
+}
+
+function SecaoRegrasBonificacao({
+  value,
+  onChange,
+}: {
+  value: string[];
+  onChange: (next: string[]) => void;
+}) {
+  const regrasQ = useRegras();
+  const regras = (regrasQ.data ?? []).filter((r) => r.ativo);
+
+  function toggle(id: string) {
+    if (value.includes(id)) {
+      onChange(value.filter((v) => v !== id));
+    } else {
+      onChange([...value, id]);
+    }
+  }
+
+  return (
+    <Section
+      title="Regras de bonificação"
+      subtitle="Selecione regras já cadastradas para vincular a este cliente. O sistema usará essas regras ao sugerir bonificação na aprovação dos pedidos."
+    >
+      {regrasQ.isLoading && (
+        <p className="text-[12px] text-gray-text">Carregando regras…</p>
+      )}
+      {!regrasQ.isLoading && regras.length === 0 && (
+        <p className="text-[12px] text-gray-text">
+          Nenhuma regra ativa cadastrada. Vá em{" "}
+          <a
+            href="/bonificacao-regras"
+            target="_blank"
+            rel="noreferrer"
+            className="text-brand underline"
+          >
+            Regras de bonificação
+          </a>{" "}
+          para criar.
+        </p>
+      )}
+      {regras.length > 0 && (
+        <ul className="space-y-1.5">
+          {regras.map((r) => {
+            const checked = value.includes(r.id);
+            const escopo: string[] = [];
+            if (r.tier) escopo.push(`Tier ${r.tier}`);
+            if (r.tabela_preco_id)
+              escopo.push(`Tabela ${r.tabela_nome ?? r.tabela_preco_id}`);
+            if (r.qtd_clientes_vinculados > 0)
+              escopo.push(`${r.qtd_clientes_vinculados} cliente(s)`);
+            return (
+              <li key={r.id}>
+                <label className="flex items-start gap-2 cursor-pointer p-2 rounded-md hover:bg-gray-soft/50 transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={() => toggle(r.id)}
+                    className="mt-0.5"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[13px] text-ink">
+                      {TIPO_REGRA_LABEL[r.tipo_regra]}
+                    </div>
+                    {(escopo.length > 0 || r.observacao) && (
+                      <div className="text-[11px] text-gray-text">
+                        {escopo.join(" · ")}
+                        {r.observacao && (
+                          <>
+                            {escopo.length > 0 && " — "}
+                            {r.observacao}
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </label>
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </Section>
   );
 }

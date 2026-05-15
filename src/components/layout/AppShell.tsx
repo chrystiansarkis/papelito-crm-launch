@@ -17,10 +17,20 @@ const PAPEL_LABEL: Record<string, string> = {
   cobranca: "Cobrança",
 };
 
+const SIDEBAR_COLLAPSED_KEY = "sidebar:collapsed";
+
 export function AppShell() {
   const { data: user } = useCurrentUser();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return window.localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "1";
+  });
   const location = useLocation();
+
+  useEffect(() => {
+    window.localStorage.setItem(SIDEBAR_COLLAPSED_KEY, sidebarCollapsed ? "1" : "0");
+  }, [sidebarCollapsed]);
 
   // Fecha drawer ao mudar de rota
   useEffect(() => {
@@ -52,7 +62,11 @@ export function AppShell() {
       <div className="flex-1 flex overflow-hidden">
         {/* Sidebar desktop (lg+) — sempre visível */}
         <div className="hidden lg:block shrink-0">
-          <Sidebar items={items} />
+          <Sidebar
+            items={items}
+            collapsed={sidebarCollapsed}
+            onToggleCollapsed={() => setSidebarCollapsed((v) => !v)}
+          />
         </div>
 
         {/* Sidebar mobile (drawer) */}

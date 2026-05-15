@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils";
 export type TabKey =
   | "visao"
   | "vendas"
+  | "analise"
   | "pedidos"
   | "financeiro"
   | "contatos"
@@ -14,6 +15,7 @@ export type TabKey =
 export const TABS: { key: TabKey; label: string }[] = [
   { key: "visao", label: "Visão geral" },
   { key: "vendas", label: "Vendas & mix" },
+  { key: "analise", label: "Análise" },
   { key: "pedidos", label: "Pedidos" },
   { key: "financeiro", label: "Financeiro" },
   { key: "bonificacoes", label: "Bonificações" },

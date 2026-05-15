@@ -6,6 +6,8 @@ import {
   BarChart3,
   Boxes,
   CalendarClock,
+  ChevronsLeft,
+  ChevronsRight,
   Gift,
   Home,
   MapPin,
@@ -38,17 +40,29 @@ export type NavItemConfig = {
 export type SidebarProps = {
   items: NavItemConfig[];
   onNavigate?: () => void; // útil para fechar drawer no mobile
+  collapsed?: boolean;
+  onToggleCollapsed?: () => void;
 };
 
-export function Sidebar({ items, onNavigate }: SidebarProps) {
+export function Sidebar({ items, onNavigate, collapsed = false, onToggleCollapsed }: SidebarProps) {
   // Preserva o query string entre navegações de sidebar — os filtros globais
   // vivem na URL (?vendedor=X&uf=Y), então trocar /carteira → /pedidos deve
   // manter o recorte.
   const location = useLocation();
 
   return (
-    <aside className="w-[220px] h-full bg-paper border-r border-gray-line flex flex-col">
-      <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
+    <aside
+      className={cn(
+        "h-full bg-paper border-r border-gray-line flex flex-col transition-[width] duration-200",
+        collapsed ? "w-[60px]" : "w-[220px]"
+      )}
+    >
+      <nav
+        className={cn(
+          "flex-1 py-4 space-y-0.5 overflow-y-auto overflow-x-hidden",
+          collapsed ? "px-2" : "px-3"
+        )}
+      >
         {items.map((item, i) => (
           <div key={item.to}>
             {item.separatorBefore && i > 0 && (
@@ -58,9 +72,13 @@ export function Sidebar({ items, onNavigate }: SidebarProps) {
               to={{ pathname: item.to, search: location.search }}
               end={item.to === "/"}
               onClick={onNavigate}
+              title={collapsed ? item.label : undefined}
               className={({ isActive }) =>
                 cn(
-                  "flex items-center justify-between w-full px-3 py-2 rounded-md transition-all cursor-pointer select-none",
+                  "relative flex items-center w-full rounded-md transition-all cursor-pointer select-none",
+                  collapsed
+                    ? "justify-center px-2 py-2"
+                    : "justify-between px-3 py-2",
                   isActive
                     ? "bg-ink text-white"
                     : "text-ink-soft hover:bg-gray-soft"
@@ -69,22 +87,42 @@ export function Sidebar({ items, onNavigate }: SidebarProps) {
             >
               {({ isActive }) => (
                 <>
-                  <div className="flex items-center gap-2.5">
+                  <div
+                    className={cn(
+                      "flex items-center",
+                      collapsed ? "" : "gap-2.5"
+                    )}
+                  >
                     <item.icon
                       className={cn(
-                        "w-[14px] h-[14px]",
+                        "w-[14px] h-[14px] shrink-0",
                         isActive ? "text-white" : "text-ink-soft"
                       )}
                       strokeWidth={1.8}
                     />
-                    <span className="text-[13px] font-medium">{item.label}</span>
+                    {!collapsed && (
+                      <span className="text-[13px] font-medium">{item.label}</span>
+                    )}
                   </div>
-                  {item.badge && (
+                  {item.badge && !collapsed && (
                     <NavBadge
                       variant={isActive ? "brand" : item.badge.variant}
                     >
                       {item.badge.value}
                     </NavBadge>
+                  )}
+                  {item.badge && collapsed && (
+                    <span
+                      aria-hidden
+                      className={cn(
+                        "absolute top-1 right-1 w-1.5 h-1.5 rounded-full",
+                        item.badge.variant === "alert"
+                          ? "bg-bad"
+                          : item.badge.variant === "brand"
+                          ? "bg-brand"
+                          : "bg-gray-text"
+                      )}
+                    />
                   )}
                 </>
               )}
@@ -93,14 +131,47 @@ export function Sidebar({ items, onNavigate }: SidebarProps) {
         ))}
       </nav>
 
-      <div className="p-4 border-t border-gray-line">
+      <div
+        className={cn(
+          "border-t border-gray-line flex flex-col gap-2",
+          collapsed ? "p-2" : "p-4"
+        )}
+      >
         <button
           type="button"
-          className="w-full bg-brand hover:bg-[#E5B814] active:bg-brand-deep text-ink font-semibold px-3.5 py-2 rounded-md transition-all flex items-center justify-center gap-2"
+          title={collapsed ? "Nova ação" : undefined}
+          className={cn(
+            "bg-brand hover:bg-[#E5B814] active:bg-brand-deep text-ink font-semibold rounded-md transition-all flex items-center justify-center gap-2",
+            collapsed ? "w-full p-2" : "w-full px-3.5 py-2"
+          )}
         >
           <Plus className="w-4 h-4" strokeWidth={2.5} />
-          <span className="text-[12.5px]">Nova ação</span>
+          {!collapsed && <span className="text-[12.5px]">Nova ação</span>}
         </button>
+
+        {onToggleCollapsed && (
+          <button
+            type="button"
+            onClick={onToggleCollapsed}
+            title={collapsed ? "Expandir menu" : "Recolher menu"}
+            aria-label={collapsed ? "Expandir menu" : "Recolher menu"}
+            className={cn(
+              "hidden lg:flex items-center text-ink-soft hover:bg-gray-soft rounded-md transition-all",
+              collapsed
+                ? "w-full justify-center p-2"
+                : "w-full justify-start gap-2 px-3 py-1.5"
+            )}
+          >
+            {collapsed ? (
+              <ChevronsRight className="w-4 h-4" strokeWidth={1.8} />
+            ) : (
+              <>
+                <ChevronsLeft className="w-4 h-4" strokeWidth={1.8} />
+                <span className="text-[12px]">Recolher</span>
+              </>
+            )}
+          </button>
+        )}
       </div>
     </aside>
   );

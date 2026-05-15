@@ -13,6 +13,7 @@ import {
   EmConstrucaoPane,
   VisaoGeralTab,
   VendasMixTab,
+  AnaliseTab,
   useFichaCliente,
 } from "@/features/cliente";
 import { ProtheusStatusCard } from "@/features/carteira/components/ProtheusStatusCard";
@@ -70,13 +71,14 @@ export default function Cliente() {
         {id && <ProtheusStatusCard clienteId={id} />}
         {tab === "visao" && <VisaoGeralTab ficha={ficha} />}
         {tab === "vendas" && id && <VendasMixTab clienteId={id} ficha={ficha} />}
+        {tab === "analise" && id && <AnaliseTab clienteId={id} />}
         {tab === "pedidos" && (
           <PedidosCard pedidos={ficha.pedidos.data ?? []} />
         )}
         {tab === "financeiro" && <FinanceiroCard cliente={cliente} />}
         {tab === "bonificacoes" && id && <BonificacoesTab clienteId={id} />}
-        {tab === "contatos" && (
-          <ContatosCard contatos={ficha.contatos.data ?? []} />
+        {tab === "contatos" && id && (
+          <ContatosCard contatos={ficha.contatos.data ?? []} clienteId={id} />
         )}
         {tab === "atendimentos" && <EmConstrucaoPane titulo="Atendimentos do cliente" />}
         {tab === "anotacoes" && (

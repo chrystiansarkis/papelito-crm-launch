@@ -39,7 +39,7 @@ export function ExploradorMix({
 
   const colCfg = useMemo(
     () => ({
-      storageKey: "papelito:cliente:vendasmix:cols",
+      storageKey: "papelito:cliente:vendasmix:cols:v2",
       allIds: MIX_COLUMN_IDS,
       fixedTop: MIX_FIXED_TOP,
       defaultOrder: MIX_DEFAULT_ORDER,

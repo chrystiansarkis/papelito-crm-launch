@@ -8,7 +8,7 @@ function fmtRs(v: number): string {
 }
 function fmtQtd(v: number): string {
   if (v === 0) return "—";
-  return `${v.toLocaleString("pt-BR", { maximumFractionDigits: 0 })} un`;
+  return v.toLocaleString("pt-BR", { maximumFractionDigits: 0 });
 }
 function fmtPct(v: number): string {
   if (v === 0) return "—";

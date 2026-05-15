@@ -13,6 +13,12 @@ import {
   type MixColumnId,
 } from "./columns";
 
+const METRICA_SUFFIX_LABEL: Record<MixMetrica, string> = {
+  rs: "R$",
+  qtd: "Un",
+  pct: "%",
+};
+
 function SortableHeader({
   by, sort, onSort, children, align = "right",
 }: {
@@ -135,6 +141,25 @@ export function PivotTable({
   );
   const metricas = filtros.metricas.length > 0 ? filtros.metricas : (["rs"] as MixMetrica[]);
 
+  // Cada coluna lógica de período (ex.: "Mai/26") vira N sub-colunas, uma
+  // por métrica ativa. Mantém a leitura limpa e o export sem mistura.
+  const colunasFisicas = useMemo(
+    () =>
+      colunas.flatMap((c) =>
+        metricas.map((m) => ({
+          baseKey: c.key,
+          metrica: m,
+          sortKey: `${c.key}__${m}`,
+          label: metricas.length > 1 ? `${c.label} ${METRICA_SUFFIX_LABEL[m]}` : c.label,
+          isAtual: c.isAtual,
+        })),
+      ),
+    [colunas, metricas],
+  );
+
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [scrolled, setScrolled] = useState(false);
+
   if (rows.length === 0) {
     return <div className="text-sm text-gray-faint p-6 text-center">Sem dados no período selecionado.</div>;
   }
@@ -144,8 +169,6 @@ export function PivotTable({
     papeis: "Papéis", filtros: "Filtros", piteiras: "Piteiras", outros: "Outros",
   };
   const tierKey = tier ?? "__geral__";
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const [scrolled, setScrolled] = useState(false);
 
   const rowsAumentadas: Array<LinhaPivot & { _variant?: "media_tier" }> = [];
   for (let i = 0; i < rows.length; i++) {
@@ -224,22 +247,28 @@ export function PivotTable({
                   : <ChevronsUpDown size={10} className="opacity-40" />}
               </button>
             </th>
-            {colunas.map((c) => (
-              <SortableHeader key={c.key} by={c.key} sort={sort} onSort={onSort}>
+            {colunasFisicas.map((c) => (
+              <SortableHeader key={c.sortKey} by={c.sortKey} sort={sort} onSort={onSort}>
                 <span className={c.isAtual ? "text-ink" : ""}>{c.label}</span>
               </SortableHeader>
             ))}
             {visibleMeta.map((id) => {
-              const align = id === "obs" || id === "vs" || id === "sem_compra" || id === "cresc12m"
-                ? "center" : "right";
+              const align =
+                id === "obs" || id === "vs" || id === "sem_compra" ||
+                id === "cresc12m_rs" || id === "cresc12m_qtd"
+                  ? "center" : "right";
               const sortBy =
-                id === "total" ? "__total__"
-                : id === "tend" ? "__tend__"
+                id === "total_rs" ? "__total__rs"
+                : id === "total_qtd" ? "__total__qtd"
+                : id === "tend_rs" ? "__tend__rs"
+                : id === "tend_qtd" ? "__tend__qtd"
                 : id === "vs" ? "__vs__"
                 : id === "ticket" ? "__ticket__"
                 : id === "sem_compra" ? "__sem_compra__"
-                : id === "venda12m" ? "__venda12m__"
-                : id === "cresc12m" ? "__cresc12m__"
+                : id === "venda12m_rs" ? "__venda12m__rs"
+                : id === "venda12m_qtd" ? "__venda12m__qtd"
+                : id === "cresc12m_rs" ? "__cresc12m__rs"
+                : id === "cresc12m_qtd" ? "__cresc12m__qtd"
                 : null;
               if (sortBy) {
                 return (
@@ -263,8 +292,8 @@ export function PivotTable({
               <PivotRow
                 key={linha.key}
                 linha={linha}
-                colunas={colunas}
-                metricas={metricas}
+                colunasFisicas={colunasFisicas}
+                metricaPrim={metricas[0] ?? "rs"}
                 visibleMeta={visibleMeta}
                 expandivel={variant === "normal" && linha.nivel < 3}
                 expandido={expandidos.has(linha.key)}
@@ -279,8 +308,8 @@ export function PivotTable({
           })}
           <PivotRow
             linha={total}
-            colunas={colunas}
-            metricas={metricas}
+            colunasFisicas={colunasFisicas}
+            metricaPrim={metricas[0] ?? "rs"}
             visibleMeta={visibleMeta}
             expandivel={false}
             expandido={false}

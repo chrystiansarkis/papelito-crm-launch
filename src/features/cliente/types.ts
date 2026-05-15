@@ -42,13 +42,31 @@ export type Pedido = {
   tipo_operacao: string | null;
 };
 
+export type FuncaoContato =
+  | "decisor"
+  | "influenciador"
+  | "operacional"
+  | "vendedor_distribuidor"
+  | "outro";
+
+export const FUNCAO_CONTATO_LABEL: Record<FuncaoContato, string> = {
+  decisor: "Decisor",
+  influenciador: "Influenciador",
+  operacional: "Operacional",
+  vendedor_distribuidor: "Vendedor / Distribuidor",
+  outro: "Outro",
+};
+
 export type Contato = {
   id: string;
   nome: string;
   cargo: string | null;
+  funcao: FuncaoContato;
   email: string | null;
   telefones: unknown;
   principal: boolean;
+  recebe_cobranca: boolean;
+  observacoes: string | null;
 };
 
 export type Observacao = {
@@ -248,4 +266,25 @@ export type GrupoDisplayNome = {
   nome_original: string;
   nome_amigavel: string;
   nivel: "pai" | "filho" | null;
+};
+
+// =====================================================================
+// Sprint Análise — desvio preço praticado × tabela
+// =====================================================================
+
+// Linha de public.fn_cliente_desvio_preco(uuid)
+export type DesvioPrecoRow = {
+  ano: number;
+  mes: number;
+  cod_produto: string;
+  nome_produto: string | null;
+  grupo_pai: GrupoPaiKey;
+  grupo_filho: string;
+  cod_grupo: string | null;
+  qtd: number;
+  valor_liq: number;
+  preco_praticado: number | null;
+  preco_tabela_base: number | null;
+  preco_tabela_final: number | null;
+  tabela_preco_id: string | null;
 };

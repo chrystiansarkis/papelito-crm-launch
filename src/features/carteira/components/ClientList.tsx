@@ -127,7 +127,7 @@ const COLUMN_RENDERERS: Record<CarteiraColumnId, ColumnRenderer> = {
     cell: (c, ctx) => (
       <td
         className={cn(
-          "px-3 py-2.5 sticky left-8 z-10 border-r border-gray-line transition-shadow",
+          "px-3 py-2.5 sticky left-8 z-[1] border-r border-gray-line transition-shadow",
           ctx.isSelected
             ? "bg-brand-soft/95"
             : "bg-white group-hover/row:bg-gray-soft",
@@ -450,7 +450,7 @@ export function ClientList({
       <table className="w-full">
         <thead className="bg-gray-soft">
           <tr>
-            <th className="px-3 py-2.5 text-left w-8 sticky left-0 z-20 bg-gray-soft">
+            <th className="px-3 py-2.5 text-left w-8 sticky left-0 z-[2] bg-gray-soft">
               <input
                 type="checkbox"
                 checked={allChecked}
@@ -496,7 +496,7 @@ export function ClientList({
                 >
                   <td
                     className={cn(
-                      "px-3 py-2.5 sticky left-0 z-10",
+                      "px-3 py-2.5 sticky left-0 z-[1]",
                       isSel ? "bg-brand-soft/95" : "bg-white group-hover/row:bg-gray-soft",
                     )}
                   >
@@ -549,7 +549,7 @@ function HeaderCell({
 
   const stickyCls = isSticky
     ? cn(
-        "sticky left-8 z-20 bg-gray-soft border-r border-gray-line transition-shadow",
+        "sticky left-8 z-[2] bg-gray-soft border-r border-gray-line transition-shadow",
         scrolled && "shadow-[4px_0_6px_-2px_rgba(0,0,0,0.06)]",
       )
     : "";

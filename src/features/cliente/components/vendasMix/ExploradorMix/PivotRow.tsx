@@ -3,9 +3,17 @@ import { ObservacoesPopover } from "./ObservacoesPopover";
 import { CelulaStacked } from "./CelulaStacked";
 import { formatMoney } from "@/lib/format";
 import { alertaVs2025, corPillSemCompra, type AlertaCor, type PillSemCompraTone } from "../../../lib/vendasMixTendencia";
-import type { ColunaPivot, LinhaPivot, MetricaValores } from "../../../lib/vendasMixPivot";
+import type { LinhaPivot, MetricaValores } from "../../../lib/vendasMixPivot";
 import type { MixMetrica } from "../../../types";
 import type { MixColumnId } from "./columns";
+
+export type ColunaFisica = {
+  baseKey: string;       // colKey lógico do período (ex.: "2025-12")
+  metrica: MixMetrica;   // métrica desta coluna física
+  sortKey: string;       // ex.: "2025-12__rs"
+  label: string;
+  isAtual: boolean;
+};
 
 const SEM_COMPRA_TONE: Record<PillSemCompraTone, string> = {
   soft:   "bg-gray-soft text-gray-faint",
@@ -41,7 +49,6 @@ const VS_TONE: Record<AlertaCor, string> = {
   blue:           "bg-blue-50 text-blue-700",
 };
 
-// Cor da bolinha por grupo pai (Sprint 2.6 Bloco 2).
 const BOLINHA_GRUPO: Record<string, string> = {
   papeis:   "bg-[#F5C518]",
   filtros:  "bg-[#22A87E]",
@@ -51,8 +58,8 @@ const BOLINHA_GRUPO: Record<string, string> = {
 
 export function PivotRow({
   linha,
-  colunas,
-  metricas,
+  colunasFisicas,
+  metricaPrim,
   visibleMeta,
   expandivel,
   expandido,
@@ -64,9 +71,9 @@ export function PivotRow({
   showStickyShadow = false,
 }: {
   linha: LinhaPivot;
-  colunas: ColunaPivot[];
-  metricas: MixMetrica[];
-  visibleMeta: MixColumnId[]; // ordem renderizada das colunas-meta
+  colunasFisicas: ColunaFisica[];
+  metricaPrim: MixMetrica;
+  visibleMeta: MixColumnId[];
   expandivel: boolean;
   expandido: boolean;
   onToggleExpand?: () => void;
@@ -78,13 +85,10 @@ export function PivotRow({
 }) {
   const dias = pillDias(linha.diasSemCompra);
   const isSku = linha.scope === "sku";
-  const metricaPrim: MixMetrica = metricas[0] ?? "rs";
   const isPai = linha.nivel === 1 && linha.scope === "grupo_pai";
   const isFilho = linha.nivel === 2;
   const isSkuRow = linha.nivel === 3;
 
-  // Sprint 2.6c — Bloco 1.
-  // Hierarquia via CSS variable --row-bg na <tr>; sticky <td> herda.
   const rowBg =
     selecionado              ? "#FFFBEB" :
     variant === "total"      ? "#FAFAF6" :
@@ -102,7 +106,6 @@ export function PivotRow({
           ? "border-b border-gray-line"
           : "";
 
-  // Tipografia 13px uniforme; varia só peso + cor.
   const labelCls = isPai
     ? "text-[12px] font-semibold text-ink"
     : isFilho
@@ -111,53 +114,51 @@ export function PivotRow({
         ? "text-[12px] font-normal text-ink-soft"
         : "text-[12px]";
 
-  // Padding por nível (Bloco 2): pai 12px, filho 36px, sku 60px.
-  // Total e media_tier usam 12px.
   const stickyPaddingLeft =
     variant === "media_tier" || variant === "total"
       ? 12
       : isPai ? 12 : isFilho ? 36 : isSkuRow ? 60 : 12;
 
   function renderMeta(id: MixColumnId) {
-    if (id === "total") {
+    if (id === "total_rs" || id === "total_qtd") {
+      const m: MixMetrica = id === "total_rs" ? "rs" : "qtd";
       return (
-        <td key="total" className="px-2 py-1 text-right tabular-nums whitespace-nowrap font-medium">
-          <CelulaStacked valores={linha.total} metricas={metricas} />
+        <td key={id} className="px-2 py-1 text-right tabular-nums whitespace-nowrap font-medium">
+          <CelulaStacked valores={linha.total} metricas={[m]} />
         </td>
       );
     }
-    if (id === "venda12m") {
+    if (id === "venda12m_rs" || id === "venda12m_qtd") {
+      const m: MixMetrica = id === "venda12m_rs" ? "rs" : "qtd";
       return (
-        <td key="venda12m" className="px-2 py-1 text-right tabular-nums whitespace-nowrap">
-          <CelulaStacked valores={linha.venda12m} metricas={metricas} />
+        <td key={id} className="px-2 py-1 text-right tabular-nums whitespace-nowrap">
+          <CelulaStacked valores={linha.venda12m} metricas={[m]} />
         </td>
       );
     }
-    if (id === "cresc12m") {
-      // alertaVs2025 é genérico — compara A vs B. Aqui A=12m anterior, B=12m atual.
-      const usarQtd = metricaPrim === "qtd";
+    if (id === "cresc12m_rs" || id === "cresc12m_qtd") {
+      const usarQtd = id === "cresc12m_qtd";
       const ant = usarQtd ? linha.venda12mAnterior.qtd : linha.venda12mAnterior.rs;
       const atu = usarQtd ? linha.venda12m.qtd : linha.venda12m.rs;
       const alerta = alertaVs2025(ant, atu);
       const tone = VS_TONE[alerta.cor];
       return (
-        <td key="cresc12m" className="px-2 py-1 text-center whitespace-nowrap">
+        <td key={id} className="px-2 py-1 text-center whitespace-nowrap">
           <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-medium ${tone}`}>
             {alerta.texto}
           </span>
         </td>
       );
     }
-    if (id === "tend") {
+    if (id === "tend_rs" || id === "tend_qtd") {
+      const m: MixMetrica = id === "tend_rs" ? "rs" : "qtd";
       return (
-        <td key="tend" className="px-2 py-1 text-right tabular-nums whitespace-nowrap">
-          <CelulaStacked valores={linha.tend2026} metricas={metricas} />
+        <td key={id} className="px-2 py-1 text-right tabular-nums whitespace-nowrap">
+          <CelulaStacked valores={linha.tend2026} metricas={[m]} />
         </td>
       );
     }
     if (id === "vs") {
-      // Alerta acionável (Bloco 8): usa brutos de fat25/fat26 pra distinguir
-      // "novo cliente", "ZERO 2026", "estável" etc. — em vez do "-100%" cego.
       const usarQtd = metricaPrim === "qtd";
       const fat25 = usarQtd ? linha.fat2025Bruto.qtd : linha.fat2025Bruto.rs;
       const fat26 = usarQtd ? linha.fat2026Bruto.qtd : linha.fat2026Bruto.rs;
@@ -231,7 +232,6 @@ export function PivotRow({
                 size={12}
                 className={`transition-transform ${expandido ? "rotate-90" : ""}`}
               />
-              {/* manter ChevronDown importado pra evitar warnings de tree-shake do bundler local */}
               <span className="hidden"><ChevronDown size={0} /></span>
             </button>
           ) : (
@@ -246,14 +246,14 @@ export function PivotRow({
           <span className={`truncate ${labelCls}`}>{linha.label}</span>
         </div>
       </td>
-      {colunas.map((c) => {
-        const cell: MetricaValores | null = linha.cellsByMetric[c.key] ?? null;
+      {colunasFisicas.map((c) => {
+        const cell: MetricaValores | null = linha.cellsByMetric[c.baseKey] ?? null;
         return (
           <td
-            key={c.key}
+            key={c.sortKey}
             className={`px-2 py-1 text-right whitespace-nowrap ${c.isAtual ? "bg-amber-50/40" : ""}`}
           >
-            <CelulaStacked valores={cell} metricas={metricas} />
+            <CelulaStacked valores={cell} metricas={[c.metrica]} />
           </td>
         );
       })}

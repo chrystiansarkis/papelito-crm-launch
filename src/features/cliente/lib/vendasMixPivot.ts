@@ -300,23 +300,33 @@ function calcCresc12m(b: AggBucket): { rs: number | null; qtd: number | null } {
 function applySort(rows: LinhaPivot[], sort: MixSort | null, metricaPrim: MixMetrica): LinhaPivot[] {
   if (!sort) return rows;
   const sign = sort.dir === "asc" ? 1 : -1;
+  // Sort keys aceitam sufixo __rs / __qtd / __pct para fixar métrica.
+  // Exemplo: "2025-12__qtd" ordena pelo Un de dez/25; "__total__rs" pelo Total R$.
+  function splitMetric(key: string): { base: string; metric: MixMetrica | null } {
+    const m = /__(rs|qtd|pct)$/.exec(key);
+    if (!m) return { base: key, metric: null };
+    return { base: key.slice(0, m.index), metric: m[1] as MixMetrica };
+  }
+  const { base, metric: metricSuffix } = splitMetric(sort.by);
+  const metric: MixMetrica = metricSuffix ?? metricaPrim;
   const getKey = (r: LinhaPivot): number | string => {
-    if (sort.by === "__produto__") return r.label.toLowerCase();
-    if (sort.by === "__total__") return r.total[metricaPrim] ?? 0;
-    if (sort.by === "__tend__") return r.tend2026?.[metricaPrim] ?? -Infinity;
-    if (sort.by === "__vs__") {
-      const v = r.vs2025?.[metricaPrim === "qtd" ? "qtd" : "rs"];
+    if (base === "__produto__") return r.label.toLowerCase();
+    if (base === "__total__") return r.total[metric] ?? 0;
+    if (base === "__tend__") return r.tend2026?.[metric] ?? -Infinity;
+    if (base === "__vs__") {
+      const v = r.vs2025?.[metric === "qtd" ? "qtd" : "rs"];
       return v ?? -Infinity;
     }
-    if (sort.by === "__ticket__") return r.ticketMedio12m ?? -Infinity;
-    if (sort.by === "__sem_compra__") return r.diasSemCompra ?? Infinity;
-    if (sort.by === "__venda12m__") return r.venda12m[metricaPrim === "qtd" ? "qtd" : "rs"] ?? 0;
-    if (sort.by === "__cresc12m__") {
-      const v = r.cresc12m[metricaPrim === "qtd" ? "qtd" : "rs"];
+    if (base === "__ticket__") return r.ticketMedio12m ?? -Infinity;
+    if (base === "__sem_compra__") return r.diasSemCompra ?? Infinity;
+    if (base === "__venda12m__") return r.venda12m[metric === "qtd" ? "qtd" : "rs"] ?? 0;
+    if (base === "__cresc12m__") {
+      const v = r.cresc12m[metric === "qtd" ? "qtd" : "rs"];
       return v ?? -Infinity;
     }
-    const cell = r.cellsByMetric[sort.by];
-    return cell?.[metricaPrim] ?? 0;
+    // Período (ex.: "2025-12") — base sem sufixo é o colKey real.
+    const cell = r.cellsByMetric[base];
+    return cell?.[metric] ?? 0;
   };
   return [...rows].sort((a, b) => {
     const va = getKey(a); const vb = getKey(b);

@@ -30,6 +30,11 @@ export {
 export { RegistrarBonificacaoDialog } from "./components/RegistrarBonificacaoDialog";
 export { BonificacoesTab } from "./components/BonificacoesTab";
 export { ClientesRegraPanel } from "./components/ClientesRegraPanel";
+export {
+  ClientesPendentesPanel,
+  type ClientePendente,
+} from "./components/ClientesPendentesPanel";
+export { GrupoCombo, ProdutoCombo } from "./components/combos";
 
 // Engine de regras
 export {
@@ -42,6 +47,7 @@ export {
   desassociarClienteRegra,
   listRegrasCliente,
   definirRegrasCliente,
+  resolverClientes,
 } from "./api/regras";
 export {
   useRegras,
@@ -65,4 +71,6 @@ export {
   type ClienteVinculadoRow,
   type AssociarResultado,
   type RegraDoCliente,
+  type ClienteResolvido,
+  type ResolverClientesResult,
 } from "./schemas.regra";

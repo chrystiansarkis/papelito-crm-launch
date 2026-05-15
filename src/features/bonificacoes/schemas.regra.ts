@@ -68,6 +68,7 @@ const manualHistoricoParams = z.object({
 export const regraSchema = z
   .object({
     id: uuidSchema.optional(),
+    nome: z.string().trim().min(2, "Nome obrigatorio").max(120),
     tier: z.string().trim().max(40).optional().or(z.literal("")),
     tabela_preco_id: z.string().trim().max(64).optional().or(z.literal("")),
     tipo_regra: z.enum(TIPO_REGRA),
@@ -108,6 +109,7 @@ export type RegraForm = z.infer<typeof regraSchema>;
 
 export type RegraRow = {
   id: string;
+  nome: string | null;
   qtd_clientes_vinculados: number;
   tier: string | null;
   tabela_preco_id: string | null;
@@ -120,6 +122,20 @@ export type RegraRow = {
   vigencia_fim: string | null;
   observacao: string | null;
   updated_at: string;
+};
+
+export type ClienteResolvido = {
+  cliente_id: string;
+  nome: string | null;
+  cnpj: string | null;
+  identificador_original: string;
+};
+
+export type ResolverClientesResult = {
+  resolvidos: ClienteResolvido[];
+  nao_encontrados: string[];
+  total_resolvidos: number;
+  total_nao_encontrados: number;
 };
 
 export type ClienteVinculadoRow = {

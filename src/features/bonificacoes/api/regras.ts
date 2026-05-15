@@ -7,6 +7,7 @@ import {
   type RegraDoCliente,
   type RegraForm,
   type RegraRow,
+  type ResolverClientesResult,
   type SugestaoBonificacao,
 } from "../schemas.regra";
 
@@ -28,6 +29,7 @@ export async function salvarRegra(input: RegraForm): Promise<string> {
   const safe = regraSchema.parse(input);
   const payload = {
     id: safe.id || null,
+    nome: safe.nome,
     tier: safe.tier || null,
     tabela_preco_id: safe.tabela_preco_id || null,
     tipo_regra: safe.tipo_regra,
@@ -43,6 +45,26 @@ export async function salvarRegra(input: RegraForm): Promise<string> {
   );
   if (error) throw error;
   return data as unknown as string;
+}
+
+// Resolve identificadores (UUID ou CNPJ) em clientes reais, sem persistir nada.
+// Usado no painel de regra ainda nao salva.
+export async function resolverClientes(
+  identificadores: string[],
+): Promise<ResolverClientesResult> {
+  const payload = { identificadores };
+  const { data, error } = await publicDb.rpc(
+    "fn_resolver_clientes" as never,
+    { payload } as never,
+  );
+  if (error) throw error;
+  const r = (data ?? {}) as ResolverClientesResult;
+  return {
+    resolvidos: r.resolvidos ?? [],
+    nao_encontrados: r.nao_encontrados ?? [],
+    total_resolvidos: Number(r.total_resolvidos) || 0,
+    total_nao_encontrados: Number(r.total_nao_encontrados) || 0,
+  };
 }
 
 // ============ Clientes vinculados a uma regra ============

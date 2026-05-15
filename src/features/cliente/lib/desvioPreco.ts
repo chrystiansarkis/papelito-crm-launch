@@ -161,7 +161,7 @@ export function aggregarDesvio(
       const da = Math.abs(a.total.desvio_rs);
       const db = Math.abs(b.total.desvio_rs);
       if (db !== da) return db - da;
-      return a.nome_produto.localeCompare(b.nome_produto);
+      return (a.nome_produto ?? "").localeCompare(b.nome_produto ?? "");
     });
 
   return { linhas, colunas, totalGeral: cellOf(totalGeral) };

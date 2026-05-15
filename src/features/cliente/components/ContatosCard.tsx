@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { ContatoFormDialog } from "./ContatoFormDialog";
 import { useArquivarContato } from "../hooks/useContatoMutations";
 import { FUNCAO_CONTATO_LABEL, type Contato } from "../types";
+import { formatPhone } from "@/lib/format";
 
 function telefonesDe(t: unknown): string[] {
   return Array.isArray(t) ? (t as unknown[]).map(String) : [];
@@ -72,6 +73,11 @@ export function ContatosCard({
                         Cobrança
                       </span>
                     )}
+                    {c.recebe_nf && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800">
+                        NF
+                      </span>
+                    )}
                     <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-soft text-gray-text">
                       {FUNCAO_CONTATO_LABEL[c.funcao]}
                     </span>
@@ -79,7 +85,9 @@ export function ContatosCard({
                   {c.cargo && <div className="text-xs text-muted-foreground">{c.cargo}</div>}
                   {c.email && <div className="text-xs">{c.email}</div>}
                   {tels.length > 0 && (
-                    <div className="text-xs text-muted-foreground">{tels.join(", ")}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {tels.map((t) => formatPhone(t) || t).join(", ")}
+                    </div>
                   )}
                   {c.observacoes && (
                     <div className="text-xs text-muted-foreground italic">{c.observacoes}</div>

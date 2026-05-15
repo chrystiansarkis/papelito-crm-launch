@@ -12,6 +12,10 @@ export async function salvarDesconto(input: DescontoForm): Promise<string> {
     cod_produto: safe.cod_produto || null,
     tipo: safe.tipo,
     valor: safe.valor,
+    nome: safe.nome,
+    inicio_em: safe.inicio_em,
+    fim_em: safe.fim_em || null,
+    cliente_ids: safe.cliente_ids,
     observacao: safe.observacao || null,
   };
   const { data, error } = await publicDb.rpc(

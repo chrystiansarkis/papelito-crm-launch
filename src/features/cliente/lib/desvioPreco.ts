@@ -173,3 +173,96 @@ export function colorDesvio(pct: number | null): "verde" | "ambar" | "vermelho" 
   if (pct >= -5) return "ambar";
   return "vermelho";
 }
+
+// CSV layout wide: 1 linha por SKU, cada (período × métrica) vira coluna
+// própria — sem múltiplos valores na mesma célula. Compatível com Excel pt-BR
+// (BOM UTF-8 + separador ";").
+function csvEscape(v: string): string {
+  if (v == null) return "";
+  if (/[;"\n\r]/.test(v)) return `"${v.replace(/"/g, '""')}"`;
+  return v;
+}
+
+function fmtBr(n: number | null | undefined, decimals: number): string {
+  if (n == null || Number.isNaN(n)) return "";
+  return n.toFixed(decimals).replace(".", ",");
+}
+
+export function desvioToCsv(
+  linhas: DesvioLinha[],
+  colunas: DesvioColuna[],
+  totalGeral: DesvioCell,
+): string {
+  const header: string[] = ["Código", "Produto", "Grupo pai", "Grupo filho"];
+  for (const c of colunas) {
+    header.push(
+      `${c.label} qtd`,
+      `${c.label} praticado`,
+      `${c.label} tabela`,
+      `${c.label} desvio %`,
+      `${c.label} desvio R$`,
+    );
+  }
+  header.push("Total qtd", "Total desvio %", "Total desvio R$");
+
+  const rows: string[] = [header.map(csvEscape).join(";")];
+
+  for (const l of linhas) {
+    const cells: string[] = [
+      csvEscape(l.cod_produto),
+      csvEscape(l.nome_produto),
+      csvEscape(l.grupo_pai),
+      csvEscape(l.grupo_filho),
+    ];
+    for (const c of colunas) {
+      const cell = l.cells[c.key];
+      if (!cell) {
+        cells.push("", "", "", "", "");
+      } else {
+        cells.push(
+          fmtBr(cell.qtd, 0),
+          fmtBr(cell.preco_praticado, 4),
+          fmtBr(cell.preco_tabela_final, 4),
+          fmtBr(cell.desvio_pct, 2),
+          fmtBr(cell.desvio_rs, 2),
+        );
+      }
+    }
+    cells.push(
+      fmtBr(l.total.qtd, 0),
+      fmtBr(l.total.desvio_pct, 2),
+      fmtBr(l.total.desvio_rs, 2),
+    );
+    rows.push(cells.join(";"));
+  }
+
+  rows.push(
+    [
+      "",
+      "Total geral",
+      "",
+      "",
+      ...colunas.flatMap(() => ["", "", "", "", ""]),
+      fmtBr(totalGeral.qtd, 0),
+      fmtBr(totalGeral.desvio_pct, 2),
+      fmtBr(totalGeral.desvio_rs, 2),
+    ]
+      .map(csvEscape)
+      .join(";"),
+  );
+
+  return rows.join("\r\n");
+}
+
+export function downloadCsv(filename: string, csv: string): void {
+  // BOM utf-8 pra Excel reconhecer acentos.
+  const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}

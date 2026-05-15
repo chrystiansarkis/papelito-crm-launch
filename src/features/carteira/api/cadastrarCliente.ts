@@ -25,6 +25,7 @@ export async function cadastrarClienteCrm(input: NovoClienteForm): Promise<strin
       telefones: telefonesArray(c),
       principal: c.principal,
       recebe_cobranca: c.recebe_cobranca,
+      recebe_nf: c.recebe_nf,
       notas: c.notas || null,
     }));
 

@@ -1,13 +1,14 @@
-// Mitigates: A01 (RLS no crm.contatos), A03 (campos validados antes do payload).
+// Mitigates: A01 (RPC SECURITY DEFINER no schema public — schema crm não é
+//            exposto via PostgREST), A03 (campos validados client-side + banco).
 //
-// Insere ou atualiza contato em crm.contatos. O cliente padrão já fala com
-// schema crm, então `.from("contatos")` aponta direto na tabela base (não na view).
-import { supabase } from "@/lib/supabase";
+// Insere ou atualiza contato em crm.contatos via public.fn_upsert_contato_crm.
+import { publicDb } from "@/lib/supabase";
+import { stripPhoneMask } from "@/lib/format";
 import type { Contato, FuncaoContato } from "../types";
 
 export type UpsertContatoInput = {
-  id?: string;                    // se vier, UPDATE; senão INSERT
-  cliente_id: string;             // referência para cliente_crm_id (preenchido aqui)
+  id?: string;
+  cliente_id: string;
   nome: string;
   cargo: string | null;
   funcao: FuncaoContato;
@@ -15,14 +16,9 @@ export type UpsertContatoInput = {
   telefones: string[];
   principal: boolean;
   recebe_cobranca: boolean;
+  recebe_nf: boolean;
   observacoes: string | null;
 };
-
-function clean(s: string | null): string | null {
-  if (s == null) return null;
-  const t = s.trim();
-  return t.length === 0 ? null : t;
-}
 
 export async function upsertContato(input: UpsertContatoInput): Promise<Contato> {
   const nome = input.nome.trim();
@@ -30,37 +26,27 @@ export async function upsertContato(input: UpsertContatoInput): Promise<Contato>
     throw new Error("Nome do contato precisa ter ao menos 2 caracteres.");
   }
   const telefones = input.telefones
-    .map((t) => t.trim())
+    .map((t) => stripPhoneMask(t))
     .filter((t) => t.length > 0);
 
   const payload = {
+    id: input.id ?? null,
     cliente_crm_id: input.cliente_id,
     nome,
-    cargo: clean(input.cargo),
+    cargo: input.cargo,
     funcao: input.funcao,
-    email: clean(input.email),
-    telefones: telefones.length > 0 ? telefones : null,
+    email: input.email,
+    telefones,
     principal: input.principal,
     recebe_cobranca: input.recebe_cobranca,
-    observacoes: clean(input.observacoes),
+    recebe_nf: input.recebe_nf,
+    observacoes: input.observacoes,
   };
 
-  if (input.id) {
-    const { data, error } = await supabase
-      .from("contatos" as never)
-      .update(payload as never)
-      .eq("id", input.id)
-      .select("id,nome,cargo,funcao,email,telefones,principal,recebe_cobranca,observacoes")
-      .single();
-    if (error) throw error;
-    return data as unknown as Contato;
-  }
-
-  const { data, error } = await supabase
-    .from("contatos" as never)
-    .insert(payload as never)
-    .select("id,nome,cargo,funcao,email,telefones,principal,recebe_cobranca,observacoes")
-    .single();
+  const { data, error } = await publicDb.rpc(
+    "fn_upsert_contato_crm" as never,
+    { payload } as never,
+  );
   if (error) throw error;
   return data as unknown as Contato;
 }

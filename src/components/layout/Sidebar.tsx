@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NavBadge, type NavBadgeVariant } from "@/components/common/NavBadge";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { Papel } from "@/types/database";
 
 export type NavItemConfig = {
@@ -63,72 +64,85 @@ export function Sidebar({ items, onNavigate, collapsed = false, onToggleCollapse
           collapsed ? "px-2" : "px-3"
         )}
       >
-        {items.map((item, i) => (
-          <div key={item.to}>
-            {item.separatorBefore && i > 0 && (
-              <div className="h-px bg-gray-line my-2" />
-            )}
-            <NavLink
-              to={{ pathname: item.to, search: location.search }}
-              end={item.to === "/"}
-              onClick={onNavigate}
-              title={collapsed ? item.label : undefined}
-              className={({ isActive }) =>
-                cn(
-                  "relative flex items-center w-full rounded-md transition-all cursor-pointer select-none",
-                  collapsed
-                    ? "justify-center px-2 py-2"
-                    : "justify-between px-3 py-2",
-                  isActive
-                    ? "bg-ink text-white"
-                    : "text-ink-soft hover:bg-gray-soft"
-                )
-              }
-            >
-              {({ isActive }) => (
-                <>
-                  <div
-                    className={cn(
-                      "flex items-center",
-                      collapsed ? "" : "gap-2.5"
-                    )}
-                  >
-                    <item.icon
-                      className={cn(
-                        "w-[14px] h-[14px] shrink-0",
-                        isActive ? "text-white" : "text-ink-soft"
-                      )}
-                      strokeWidth={1.8}
-                    />
-                    {!collapsed && (
-                      <span className="text-[13px] font-medium">{item.label}</span>
-                    )}
-                  </div>
-                  {item.badge && !collapsed && (
-                    <NavBadge
-                      variant={isActive ? "brand" : item.badge.variant}
-                    >
-                      {item.badge.value}
-                    </NavBadge>
-                  )}
-                  {item.badge && collapsed && (
-                    <span
-                      aria-hidden
-                      className={cn(
-                        "absolute top-1 right-1 w-1.5 h-1.5 rounded-full",
-                        item.badge.variant === "alert"
-                          ? "bg-bad"
-                          : item.badge.variant === "brand"
-                          ? "bg-brand"
-                          : "bg-gray-text"
-                      )}
-                    />
-                  )}
-                </>
+        {items.map((item, i) => {
+          const itemBlock = (
+            <div key={item.to}>
+              {item.separatorBefore && i > 0 && (
+                <div className="h-px bg-gray-line my-2" />
               )}
-            </NavLink>
-          </div>
-        ))}
+              <NavLink
+                to={{ pathname: item.to, search: location.search }}
+                end={item.to === "/"}
+                onClick={onNavigate}
+                title={collapsed ? item.label : undefined}
+                className={({ isActive }) =>
+                  cn(
+                    "relative flex items-center w-full rounded-md transition-all cursor-pointer select-none",
+                    collapsed
+                      ? "justify-center px-2 py-2"
+                      : "justify-between px-3 py-2",
+                    isActive
+                      ? "bg-ink text-white"
+                      : "text-ink-soft hover:bg-gray-soft"
+                  )
+                }
+              >
+                {({ isActive }) => (
+                  <>
+                    <div
+                      className={cn(
+                        "flex items-center",
+                        collapsed ? "" : "gap-2.5"
+                      )}
+                    >
+                      <item.icon
+                        className={cn(
+                          "w-[14px] h-[14px] shrink-0",
+                          isActive ? "text-white" : "text-ink-soft"
+                        )}
+                        strokeWidth={1.8}
+                      />
+                      {!collapsed && (
+                        <span className="text-[13px] font-medium">{item.label}</span>
+                      )}
+                    </div>
+                    {item.badge && !collapsed && (
+                      <NavBadge
+                        variant={isActive ? "brand" : item.badge.variant}
+                      >
+                        {item.badge.value}
+                      </NavBadge>
+                    )}
+                    {item.badge && collapsed && (
+                      <span
+                        aria-hidden
+                        className={cn(
+                          "absolute top-1 right-1 w-1.5 h-1.5 rounded-full",
+                          item.badge.variant === "alert"
+                            ? "bg-bad"
+                            : item.badge.variant === "brand"
+                            ? "bg-brand"
+                            : "bg-gray-text"
+                        )}
+                      />
+                    )}
+                  </>
+                )}
+              </NavLink>
+            </div>
+          );
+
+          if (!collapsed) return itemBlock;
+
+          return (
+            <Tooltip key={item.to} delayDuration={150}>
+              <TooltipTrigger asChild>{itemBlock}</TooltipTrigger>
+              <TooltipContent side="right" sideOffset={8}>
+                {item.label}
+              </TooltipContent>
+            </Tooltip>
+          );
+        })}
       </nav>
 
       <div

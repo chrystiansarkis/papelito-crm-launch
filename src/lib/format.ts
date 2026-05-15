@@ -46,6 +46,23 @@ export function formatCnpj(c: string | null | undefined): string {
   return c;
 }
 
+// Máscara pt-BR: (XX) XXXX-XXXX fixo / (XX) X XXXX-XXXX celular.
+// Aplica progressivamente p/ funcionar como mask de digitação.
+export function formatPhone(p: string | null | undefined): string {
+  if (!p) return "";
+  const n = p.replace(/\D/g, "").slice(0, 11);
+  if (n.length === 0) return "";
+  if (n.length <= 2) return `(${n}`;
+  if (n.length <= 6) return `(${n.slice(0, 2)}) ${n.slice(2)}`;
+  if (n.length <= 10) return `(${n.slice(0, 2)}) ${n.slice(2, 6)}-${n.slice(6)}`;
+  return `(${n.slice(0, 2)}) ${n.slice(2, 3)} ${n.slice(3, 7)}-${n.slice(7)}`;
+}
+
+// Remove qualquer caractere não-dígito — usar antes de persistir.
+export function stripPhoneMask(p: string | null | undefined): string {
+  return (p ?? "").replace(/\D/g, "");
+}
+
 const MESES_PT = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 
 export function formatMesRef(mesRef: string | null | undefined): string {

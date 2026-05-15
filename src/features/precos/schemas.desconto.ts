@@ -9,6 +9,12 @@ const uuidSchema = z
 export const ESCOPOS = ["geral", "grupo", "produto"] as const;
 export const TIPOS = ["percent", "valor"] as const;
 
+// Data no formato yyyy-mm-dd; RPC converte para date.
+const dateSchema = z
+  .string()
+  .trim()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, "Data invalida");
+
 export const descontoSchema = z
   .object({
     id: uuidSchema.optional(),
@@ -23,6 +29,10 @@ export const descontoSchema = z
       .refine((v) => !v || /^[0-9a-f-]{36}$/i.test(v), { message: "Produto invalido" }),
     tipo: z.enum(TIPOS),
     valor: z.number().nonnegative("Valor >= 0"),
+    nome: z.string().trim().min(1, "Nome obrigatorio").max(120),
+    inicio_em: dateSchema,
+    fim_em: dateSchema.optional().or(z.literal("")),
+    cliente_ids: z.array(uuidSchema).default([]),
     observacao: z.string().trim().max(500).optional().or(z.literal("")),
   })
   .superRefine((val, ctx) => {
@@ -54,6 +64,20 @@ export const descontoSchema = z
         message: "Geral nao aceita grupo/produto",
       });
     }
+    if (val.fim_em && val.fim_em < val.inicio_em) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["fim_em"],
+        message: "Fim deve ser >= inicio",
+      });
+    }
+    if (val.cliente_ids.length === 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["cliente_ids"],
+        message: "Selecione ao menos um cliente",
+      });
+    }
   });
 
 export type DescontoForm = z.infer<typeof descontoSchema>;
@@ -70,8 +94,24 @@ export type DescontoRow = {
   tipo: "percent" | "valor";
   valor: number;
   ativo: boolean;
+  nome: string;
+  inicio_em: string;
+  fim_em: string | null;
+  qtd_clientes: number;
   observacao: string | null;
   updated_at: string;
+};
+
+export type DescontoClienteRow = {
+  cliente_id: string;
+  tabela_preco_id: string;
+  nome: string;
+  cnpj: string;
+  uf: string | null;
+  cidade: string | null;
+  status: string;
+  bloqueio_cadastro: boolean;
+  elegivel: boolean;
 };
 
 export type GrupoArvoreRow = {

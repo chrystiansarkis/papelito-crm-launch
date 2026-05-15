@@ -101,6 +101,7 @@ const contatoSchema = z.object({
   telefone_celular: z.string().trim().max(40).optional().or(z.literal("")),
   principal: z.boolean().default(false),
   recebe_cobranca: z.boolean().default(false),
+  recebe_nf: z.boolean().default(false),
   notas: z.string().trim().max(500).optional().or(z.literal("")),
 });
 export type Contato = z.infer<typeof contatoSchema>;
@@ -113,6 +114,7 @@ export const CONTATO_INITIAL: Contato = {
   telefone_celular: "",
   principal: false,
   recebe_cobranca: false,
+  recebe_nf: false,
   notas: "",
 };
 

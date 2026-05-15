@@ -4,6 +4,7 @@ import { getClienteFicha } from "../api/getFicha";
 import { listClientePedidos } from "../api/listPedidos";
 import { listClienteContatos } from "../api/listContatos";
 import { listClienteObservacoes } from "../api/listObservacoes";
+import { listClienteTitulos } from "../api/listTitulos";
 
 export function useClienteFicha(id: string | undefined) {
   return useQuery({
@@ -33,6 +34,14 @@ export function useClienteObservacoes(id: string | undefined) {
   return useQuery({
     queryKey: id ? clienteKeys.observacoes(id) : ["cliente", "observacoes", "none"],
     queryFn: () => listClienteObservacoes(id as string),
+    enabled: !!id,
+  });
+}
+
+export function useClienteTitulos(id: string | undefined) {
+  return useQuery({
+    queryKey: id ? clienteKeys.titulos(id) : ["cliente", "titulos", "none"],
+    queryFn: () => listClienteTitulos(id as string),
     enabled: !!id,
   });
 }

@@ -66,6 +66,7 @@ export type Contato = {
   telefones: unknown;
   principal: boolean;
   recebe_cobranca: boolean;
+  recebe_nf: boolean;
   observacoes: string | null;
 };
 
@@ -266,6 +267,44 @@ export type GrupoDisplayNome = {
   nome_original: string;
   nome_amigavel: string;
   nivel: "pai" | "filho" | null;
+};
+
+// =====================================================================
+// Financeiro — títulos abertos do cliente (public.vw_cliente_titulos)
+// =====================================================================
+
+export type TituloStatus =
+  | "a_vencer"
+  | "vencido"
+  | "pago"
+  | "em_acordo"
+  | "protestado"
+  | "juridico"
+  | "perda"
+  | "cancelado";
+
+export type ClienteTitulo = {
+  id: string;
+  cliente_id: string;
+  numero: string | null;
+  parcela: string | null;
+  numero_nota: string | null;
+  serie_nota: string | null;
+  tipo: string | null;
+  emissao: string | null;
+  vencimento: string | null;
+  vencimento_real: string | null;
+  valor_original: number;
+  saldo_aberto: number;
+  valor_recebido: number;
+  juros: number | null;
+  multa: number | null;
+  desconto: number | null;
+  status: TituloStatus;
+  estagio_cobranca: string | null;
+  acordo_id: string | null;
+  baixado_em: string | null;
+  dias_atraso: number;
 };
 
 // =====================================================================

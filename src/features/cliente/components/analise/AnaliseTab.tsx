@@ -1,8 +1,14 @@
 import { useMemo, useState } from "react";
+import { Download } from "lucide-react";
 import { CardWrap } from "../visaoGeral/CardWrap";
 import { useClienteDesvioPreco } from "../../hooks/useDesvioPreco";
 import { DesvioTable } from "./DesvioTable";
-import { aggregarDesvio, type DesvioGran } from "../../lib/desvioPreco";
+import {
+  aggregarDesvio,
+  desvioToCsv,
+  downloadCsv,
+  type DesvioGran,
+} from "../../lib/desvioPreco";
 
 const GRAN_LABEL: Record<DesvioGran, string> = {
   ano: "Ano",
@@ -36,6 +42,13 @@ export function AnaliseTab({ clienteId }: { clienteId: string }) {
     const sem = linhas.filter((r) => r.preco_tabela_base == null).length;
     return Math.round((sem / linhas.length) * 100);
   }, [linhas]);
+
+  function handleExport() {
+    if (agregado.linhas.length === 0) return;
+    const csv = desvioToCsv(agregado.linhas, agregado.colunas, agregado.totalGeral);
+    const anos = anosSelecionados.join("-");
+    downloadCsv(`analise-desvio_${clienteId}_${granularidade}_${anos}.csv`, csv);
+  }
 
   return (
     <CardWrap
@@ -90,6 +103,16 @@ export function AnaliseTab({ clienteId }: { clienteId: string }) {
               {semPonte}% dos itens sem preço de tabela (ponte SF parcial)
             </div>
           )}
+          <button
+            type="button"
+            onClick={handleExport}
+            disabled={agregado.linhas.length === 0}
+            className={`${semPonte > 0 ? "" : "ml-auto"} inline-flex items-center gap-1.5 px-3 py-1.5 text-xs border border-gray-line rounded bg-paper text-ink hover:bg-gray-soft disabled:opacity-40 disabled:cursor-not-allowed`}
+            title="Exportar tabela em CSV (1 valor por célula, compatível com Excel)"
+          >
+            <Download size={13} />
+            Exportar planilha
+          </button>
         </div>
         {q.isLoading ? (
           <div className="p-6 text-sm text-gray-faint">Carregando análise...</div>

@@ -78,7 +78,9 @@
       "Bash(node node_modules/vite/bin/vite.js build)",
       "Bash(echo \"build=$?\")",
       "Bash(rm -f tsc.log)",
-      "Bash(rm -f tsc.log build.log)"
+      "Bash(rm -f tsc.log build.log)",
+      "Bash(Get-Content *.sql)",
+      "Bash(Select-String -Pattern 'vw_tabelas_preco')"
     ],
     "additionalDirectories": [
       "c:\\repo\\papelito-crm-launch"

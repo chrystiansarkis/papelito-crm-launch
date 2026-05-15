@@ -699,6 +699,15 @@ function SecaoContatos({
                   />
                   Envia boleto/cobrança
                 </label>
+                <label className="inline-flex items-center gap-1.5 text-[11.5px] cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={c.recebe_nf}
+                    onChange={(e) => onPatch(idx, { recebe_nf: e.target.checked })}
+                    className="w-3.5 h-3.5 rounded border-gray-line cursor-pointer"
+                  />
+                  Recebe NF
+                </label>
                 <button
                   type="button"
                   onClick={() => onRemove(idx)}

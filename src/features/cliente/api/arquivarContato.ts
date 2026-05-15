@@ -1,14 +1,11 @@
-// Mitigates: A01 (RLS), A09 (não deleta — só marca arquivado=true).
-import { supabase } from "@/lib/supabase";
+// Mitigates: A01 (RPC SECURITY DEFINER no schema public — schema crm não é
+//            exposto via PostgREST), A09 (não deleta — só marca arquivado=true).
+import { publicDb } from "@/lib/supabase";
 
 export async function arquivarContato(id: string, motivo?: string | null): Promise<void> {
-  const { error } = await supabase
-    .from("contatos" as never)
-    .update({
-      arquivado: true,
-      arquivado_em: new Date().toISOString(),
-      arquivado_motivo: motivo?.trim() || null,
-    } as never)
-    .eq("id", id);
+  const { error } = await publicDb.rpc(
+    "fn_arquivar_contato_crm" as never,
+    { p_id: id, p_motivo: motivo ?? null } as never,
+  );
   if (error) throw error;
 }

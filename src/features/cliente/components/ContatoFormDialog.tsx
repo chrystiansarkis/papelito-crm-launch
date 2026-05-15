@@ -25,6 +25,7 @@ import {
   type Contato,
   type FuncaoContato,
 } from "../types";
+import { formatPhone } from "@/lib/format";
 
 const FUNCOES: FuncaoContato[] = [
   "decisor",
@@ -42,6 +43,7 @@ type FormState = {
   telefones: string[];
   principal: boolean;
   recebe_cobranca: boolean;
+  recebe_nf: boolean;
   observacoes: string;
 };
 
@@ -54,6 +56,7 @@ function emptyForm(): FormState {
     telefones: [""],
     principal: false,
     recebe_cobranca: false,
+    recebe_nf: false,
     observacoes: "",
   };
 }
@@ -64,7 +67,7 @@ function telefonesOf(t: unknown): string[] {
 }
 
 function fromContato(c: Contato): FormState {
-  const tels = telefonesOf(c.telefones);
+  const tels = telefonesOf(c.telefones).map((t) => formatPhone(t) || t);
   return {
     nome: c.nome,
     cargo: c.cargo ?? "",
@@ -73,6 +76,7 @@ function fromContato(c: Contato): FormState {
     telefones: tels.length > 0 ? tels : [""],
     principal: c.principal,
     recebe_cobranca: c.recebe_cobranca,
+    recebe_nf: c.recebe_nf,
     observacoes: c.observacoes ?? "",
   };
 }
@@ -102,7 +106,7 @@ export function ContatoFormDialog({
   function setTel(i: number, v: string) {
     setForm((p) => {
       const next = p.telefones.slice();
-      next[i] = v;
+      next[i] = formatPhone(v);
       return { ...p, telefones: next };
     });
   }
@@ -132,6 +136,7 @@ export function ContatoFormDialog({
         telefones: form.telefones,
         principal: form.principal,
         recebe_cobranca: form.recebe_cobranca,
+        recebe_nf: form.recebe_nf,
         observacoes: form.observacoes || null,
       });
       toast.success(editing ? "Contato atualizado." : "Contato cadastrado.");
@@ -144,11 +149,11 @@ export function ContatoFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>{editing ? "Editar contato" : "Novo contato"}</DialogTitle>
         </DialogHeader>
-        <div className="space-y-3">
+        <div className="space-y-3 overflow-y-auto flex-1 -mx-6 px-6">
           <div className="grid grid-cols-2 gap-3">
             <div className="col-span-2">
               <Label htmlFor="contato-nome">Nome *</Label>
@@ -244,6 +249,19 @@ export function ContatoFormDialog({
             <Switch
               checked={form.recebe_cobranca}
               onCheckedChange={(v) => setForm((p) => ({ ...p, recebe_cobranca: v }))}
+            />
+          </div>
+
+          <div className="flex items-center justify-between rounded border border-gray-line p-3">
+            <div>
+              <div className="text-sm font-medium">Recebe Nota Fiscal</div>
+              <div className="text-xs text-muted-foreground">
+                Inclui este contato no envio da NF
+              </div>
+            </div>
+            <Switch
+              checked={form.recebe_nf}
+              onCheckedChange={(v) => setForm((p) => ({ ...p, recebe_nf: v }))}
             />
           </div>
 

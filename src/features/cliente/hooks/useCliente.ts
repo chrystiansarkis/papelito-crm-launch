@@ -5,6 +5,7 @@ import { listClientePedidos } from "../api/listPedidos";
 import { listClienteContatos } from "../api/listContatos";
 import { listClienteObservacoes } from "../api/listObservacoes";
 import { listClienteTitulos } from "../api/listTitulos";
+import { listPedidoNotaMap } from "../api/listPedidoNotaMap";
 
 export function useClienteFicha(id: string | undefined) {
   return useQuery({
@@ -42,6 +43,14 @@ export function useClienteTitulos(id: string | undefined) {
   return useQuery({
     queryKey: id ? clienteKeys.titulos(id) : ["cliente", "titulos", "none"],
     queryFn: () => listClienteTitulos(id as string),
+    enabled: !!id,
+  });
+}
+
+export function usePedidoNotaMap(id: string | undefined) {
+  return useQuery({
+    queryKey: id ? clienteKeys.pedidoNotaMap(id) : ["cliente", "pedido-nota-map", "none"],
+    queryFn: () => listPedidoNotaMap(id as string),
     enabled: !!id,
   });
 }

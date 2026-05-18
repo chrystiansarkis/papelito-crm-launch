@@ -1,8 +1,10 @@
 import { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { SectionCard } from "@/components/common/SectionCard";
 import { formatMoney, formatDateLong } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { useClienteTitulos } from "../hooks/useCliente";
+import { useClienteTitulos, usePedidoNotaMap } from "../hooks/useCliente";
+import { normalizaNota } from "../api/listPedidoNotaMap";
 import type { ClienteFicha, ClienteTitulo, TituloStatus } from "../types";
 
 type Filtro = "abertos" | "vencidos" | "todos";
@@ -41,6 +43,7 @@ function notaLabel(t: ClienteTitulo): string {
 
 export function FinanceiroCard({ cliente }: { cliente: ClienteFicha }) {
   const titulosQ = useClienteTitulos(cliente.id);
+  const pedidoNotaMapQ = usePedidoNotaMap(cliente.id);
   const [filtro, setFiltro] = useState<Filtro>("abertos");
 
   const titulosFiltrados = useMemo(() => {
@@ -183,6 +186,7 @@ export function FinanceiroCard({ cliente }: { cliente: ClienteFicha }) {
                 <tr className="text-[10px] uppercase tracking-wider text-gray-faint border-b border-gray-line">
                   <th className="px-3 py-2 text-left">Fatura</th>
                   <th className="px-3 py-2 text-left">NF</th>
+                  <th className="px-3 py-2 text-left">Pedido</th>
                   <th className="px-3 py-2 text-left">Emissão</th>
                   <th className="px-3 py-2 text-left">Vencimento</th>
                   <th className="px-3 py-2 text-right">Original</th>
@@ -194,6 +198,8 @@ export function FinanceiroCard({ cliente }: { cliente: ClienteFicha }) {
               <tbody>
                 {titulosFiltrados.map((t) => {
                   const atrasado = t.status === "vencido" && t.dias_atraso > 0;
+                  const notaKey = normalizaNota(t.numero_nota);
+                  const pedidoRef = notaKey ? pedidoNotaMapQ.data?.get(notaKey) : undefined;
                   return (
                     <tr
                       key={t.id}
@@ -204,6 +210,18 @@ export function FinanceiroCard({ cliente }: { cliente: ClienteFicha }) {
                       </td>
                       <td className="px-3 py-2 text-gray-text whitespace-nowrap">
                         {notaLabel(t)}
+                      </td>
+                      <td className="px-3 py-2 whitespace-nowrap">
+                        {pedidoRef ? (
+                          <Link
+                            to={`/pedido/${pedidoRef.pedido_id}`}
+                            className="text-blue-700 hover:text-blue-900 hover:underline"
+                          >
+                            {pedidoRef.numero_pedido}
+                          </Link>
+                        ) : (
+                          <span className="text-gray-faint">—</span>
+                        )}
                       </td>
                       <td className="px-3 py-2 text-gray-text whitespace-nowrap">
                         {formatDateLong(t.emissao)}

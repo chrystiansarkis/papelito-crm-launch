@@ -24,6 +24,7 @@ export const clienteKeys = {
   grupoDisplayNomes: () => [...clienteKeys.all, "grupo-display-nomes"] as const,
   desvioPreco: (id: string) => [...clienteKeys.all, "desvio-preco", id] as const,
   titulos: (id: string) => [...clienteKeys.all, "titulos", id] as const,
+  pedidoNotaMap: (id: string) => [...clienteKeys.all, "pedido-nota-map", id] as const,
   crescimentoDecomp: (id: string, periodoA: [string, string], periodoB: [string, string]) =>
     [...clienteKeys.all, "crescimento-decomp", id, periodoA.join("/"), periodoB.join("/")] as const,
   dre: (id: string, periodo: [string, string], regime: string) =>

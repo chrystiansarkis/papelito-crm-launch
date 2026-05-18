@@ -14,6 +14,8 @@ import {
   VisaoGeralTab,
   VendasMixTab,
   AnaliseTab,
+  CrescimentoTab,
+  DreTab,
   useFichaCliente,
 } from "@/features/cliente";
 import { ProtheusStatusCard } from "@/features/carteira/components/ProtheusStatusCard";
@@ -72,6 +74,8 @@ export default function Cliente() {
         {tab === "visao" && <VisaoGeralTab ficha={ficha} />}
         {tab === "vendas" && id && <VendasMixTab clienteId={id} ficha={ficha} />}
         {tab === "analise" && id && <AnaliseTab clienteId={id} />}
+        {tab === "crescimento" && id && <CrescimentoTab clienteId={id} />}
+        {tab === "dre" && id && <DreTab clienteId={id} />}
         {tab === "pedidos" && (
           <PedidosCard pedidos={ficha.pedidos.data ?? []} />
         )}

@@ -308,6 +308,67 @@ export type ClienteTitulo = {
 };
 
 // =====================================================================
+// Decomposição de Crescimento (aba Crescimento)
+// =====================================================================
+
+export type DecomposicaoCrescimento = {
+  qtd_a: number;
+  qtd_b: number;
+  receita_a: number;
+  receita_b: number;
+  ticket_a: number;
+  ticket_b: number;
+  efeito_volume: number;
+  efeito_preco_mix: number;
+  total_crescimento: number;
+  pct_crescimento: number | null;
+};
+
+// =====================================================================
+// DRE por cliente (aba DRE)
+// =====================================================================
+
+export type DreFonte =
+  | "real"
+  | "calculado"
+  | "aliquota"
+  | "regime"
+  | "proxy"
+  | "contrato"
+  | "rateio";
+
+export type DreLinha = {
+  chave: string;
+  label: string;
+  valor: number;
+  fonte: DreFonte;
+  destaque?: boolean;
+};
+
+export type DreRegime = "presumido" | "real";
+
+export type DreMeta = {
+  comissao_pct: number;
+  participacao_receita: number;
+  despesas_totais_periodo: number;
+  receita_total_periodo: number;
+  icms_default_pct: number;
+  ipi_default_pct: number;
+};
+
+export type DreCliente = {
+  regime: DreRegime;
+  periodo: { inicio: string; fim: string };
+  meta: DreMeta;
+  linhas: DreLinha[];
+};
+
+export type DreMensal = {
+  mes: string; // yyyy-mm-dd (primeiro dia do mês)
+  dre: DreCliente;
+};
+
+// =====================================================================
 // Sprint Análise — desvio preço praticado × tabela
 // =====================================================================
 

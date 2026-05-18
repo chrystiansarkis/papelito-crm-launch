@@ -11,6 +11,8 @@ export { EmConstrucaoPane } from "./components/placeholders/EmConstrucaoPane";
 export { VisaoGeralTab } from "./components/visaoGeral/VisaoGeralTab";
 export { VendasMixTab } from "./components/vendasMix/VendasMixTab";
 export { AnaliseTab } from "./components/analise/AnaliseTab";
+export { CrescimentoTab } from "./components/crescimento/CrescimentoTab";
+export { DreTab } from "./components/dre/DreTab";
 export {
   useClienteFicha,
   useClientePedidos,

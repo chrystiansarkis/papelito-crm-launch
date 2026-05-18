@@ -5,6 +5,8 @@ export type TabKey =
   | "visao"
   | "vendas"
   | "analise"
+  | "crescimento"
+  | "dre"
   | "pedidos"
   | "financeiro"
   | "contatos"
@@ -16,6 +18,8 @@ export const TABS: { key: TabKey; label: string }[] = [
   { key: "visao", label: "Visão geral" },
   { key: "vendas", label: "Vendas & mix" },
   { key: "analise", label: "Análise" },
+  { key: "crescimento", label: "Crescimento" },
+  { key: "dre", label: "DRE" },
   { key: "pedidos", label: "Pedidos" },
   { key: "financeiro", label: "Financeiro" },
   { key: "bonificacoes", label: "Bonificações" },

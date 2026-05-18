@@ -3,12 +3,15 @@ import { Download } from "lucide-react";
 import { CardWrap } from "../visaoGeral/CardWrap";
 import { useClienteDesvioPreco } from "../../hooks/useDesvioPreco";
 import { DesvioTable } from "./DesvioTable";
+import { DesvioCustoView } from "./DesvioCustoView";
 import {
   aggregarDesvio,
   desvioToCsv,
   downloadCsv,
   type DesvioGran,
 } from "../../lib/desvioPreco";
+
+type ModoDesvio = "preco" | "custo";
 
 const GRAN_LABEL: Record<DesvioGran, string> = {
   ano: "Ano",
@@ -17,6 +20,7 @@ const GRAN_LABEL: Record<DesvioGran, string> = {
 };
 
 export function AnaliseTab({ clienteId }: { clienteId: string }) {
+  const [modo, setModo] = useState<ModoDesvio>("preco");
   const q = useClienteDesvioPreco(clienteId);
   const [granularidade, setGranularidade] = useState<DesvioGran>("tri");
   const [anosSelecionados, setAnosSelecionados] = useState<number[]>(() => {
@@ -50,7 +54,18 @@ export function AnaliseTab({ clienteId }: { clienteId: string }) {
     downloadCsv(`analise-desvio_${clienteId}_${granularidade}_${anos}.csv`, csv);
   }
 
+  if (modo === "custo") {
+    return (
+      <div className="space-y-3">
+        <ModoToggle modo={modo} setModo={setModo} />
+        <DesvioCustoView clienteId={clienteId} />
+      </div>
+    );
+  }
+
   return (
+    <div className="space-y-3">
+      <ModoToggle modo={modo} setModo={setModo} />
     <CardWrap
       title="Análise de desvio de preço"
       subtitle="Praticado vs tabela aplicada ao cliente · por SKU · agregado no período"
@@ -129,5 +144,33 @@ export function AnaliseTab({ clienteId }: { clienteId: string }) {
         )}
       </div>
     </CardWrap>
+    </div>
+  );
+}
+
+function ModoToggle({
+  modo,
+  setModo,
+}: {
+  modo: ModoDesvio;
+  setModo: (m: ModoDesvio) => void;
+}) {
+  return (
+    <div className="flex rounded border border-gray-line overflow-hidden w-fit">
+      {(["preco", "custo"] as ModoDesvio[]).map((m) => (
+        <button
+          key={m}
+          type="button"
+          onClick={() => setModo(m)}
+          className={`px-3 py-1.5 text-sm ${
+            modo === m
+              ? "bg-ink text-paper"
+              : "bg-paper text-ink hover:bg-gray-soft"
+          }`}
+        >
+          {m === "preco" ? "Desvio de preço" : "Desvio de custo médio"}
+        </button>
+      ))}
+    </div>
   );
 }

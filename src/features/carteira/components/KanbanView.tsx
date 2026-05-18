@@ -100,7 +100,7 @@ export function KanbanView({ rows }: { rows: CarteiraCliente[] }) {
                         </div>
                       </div>
                     </div>
-                    <div className="font-display text-[18px] text-ink leading-none mb-2">
+                    <div className="text-[18px] text-ink leading-none mb-2">
                       {formatMoney(c.faturamento_12m)}
                     </div>
                     <Sparkbar

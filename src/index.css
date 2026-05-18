@@ -1,4 +1,28 @@
-@import url('https://fonts.googleapis.com/css2?family=Geist:wght@300..700&family=Fraunces:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500&display=swap');
+
+@font-face {
+  font-family: 'Beastly';
+  src: url('/fonts/beastly/Beastly-24_Point.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'PP Neue Montreal';
+  src: url('/fonts/pp-neue-montreal/PPNeueMontreal-Variable.ttf') format('truetype-variations');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'PP Neue Montreal';
+  src: url('/fonts/pp-neue-montreal/ppneuemontreal-semibolditalic.otf') format('opentype');
+  font-weight: 600;
+  font-style: italic;
+  font-display: swap;
+}
 
 @tailwind base;
 @tailwind components;
@@ -33,7 +57,7 @@
   * { @apply border-border; }
   html { @apply bg-paper text-ink antialiased; }
   body { @apply font-sans bg-paper text-ink; }
-  h1, h2, h3 { @apply font-display tracking-tight; }
+  h1, h2, h3 { @apply tracking-tight; }
 }
 
 @layer components {
@@ -46,5 +70,9 @@
   }
   .display {
     @apply font-display;
+  }
+  .font-display,
+  .display {
+    letter-spacing: 0.02em;
   }
 }

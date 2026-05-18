@@ -20,7 +20,7 @@ export function KpiCard({ label, value, sub, alert, valueClass, subClass }: KpiC
       <div className="text-xs uppercase text-muted-foreground">{label}</div>
       <div
         className={cn(
-          "text-2xl font-display mt-1",
+          "text-2xl mt-1",
           alert ? "text-red-700" : "text-ink",
           valueClass
         )}

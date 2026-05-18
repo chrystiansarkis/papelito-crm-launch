@@ -138,7 +138,7 @@ function SummaryCard({
       <div className="label-caps text-gray-text mb-2">{label}</div>
       <div
         className={cn(
-          "font-display text-[24px] sm:text-[28px] text-ink leading-none",
+          "text-[24px] sm:text-[28px] text-ink leading-none",
           valueClass
         )}
       >

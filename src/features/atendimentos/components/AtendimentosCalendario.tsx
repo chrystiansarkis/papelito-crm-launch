@@ -121,7 +121,7 @@ export function AtendimentosCalendario({ items, onEdit }: AtendimentosCalendario
           </button>
         </div>
 
-        <h3 className="font-display text-lg text-ink">
+        <h3 className="text-lg text-ink">
           {MESES[month]} {year}
         </h3>
 

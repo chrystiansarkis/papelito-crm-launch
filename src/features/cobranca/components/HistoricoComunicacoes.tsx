@@ -21,7 +21,7 @@ export function HistoricoComunicacoes({ historico }: { historico: ReguaHistorico
     <section className="space-y-3">
       <div className="flex items-baseline justify-between gap-2 flex-wrap">
         <div className="flex items-baseline gap-2">
-          <h2 className="font-display text-2xl">Comunicações enviadas</h2>
+          <h2 className="text-2xl">Comunicações enviadas</h2>
           <span className="text-sm text-muted-foreground">({historico.length})</span>
         </div>
         <select

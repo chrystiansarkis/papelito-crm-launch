@@ -8,7 +8,7 @@ export function ReguaAtiva({ passos }: { passos: ReguaPasso[] }) {
   return (
     <section className="space-y-3">
       <div className="flex items-baseline gap-2">
-        <h2 className="font-display text-2xl">Régua ativa</h2>
+        <h2 className="text-2xl">Régua ativa</h2>
         <span className="text-sm text-muted-foreground">
           ({passos.length} passo{passos.length === 1 ? "" : "s"})
         </span>
@@ -23,7 +23,7 @@ export function ReguaAtiva({ passos }: { passos: ReguaPasso[] }) {
             return (
               <div key={`${p.passo_ordem}-${idx}`} className="flex items-center gap-2 shrink-0">
                 <div className="min-w-[180px] border border-border rounded-lg p-3 bg-card">
-                  <div className="font-display text-lg">Dia {p.dia_atraso}</div>
+                  <div className="text-lg">Dia {p.dia_atraso}</div>
                   <div className="flex items-center gap-1.5 text-sm mt-1">
                     <Icon size={14} className="text-muted-foreground" />
                     {CANAL_LABEL[p.canal] ?? p.canal}

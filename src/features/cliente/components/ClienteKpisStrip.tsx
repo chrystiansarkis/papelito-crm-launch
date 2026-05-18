@@ -34,7 +34,7 @@ function Cell({
       <div className="text-[10px] uppercase tracking-wider text-gray-faint">
         {label}
       </div>
-      <div className="text-lg font-display text-ink truncate">{value}</div>
+      <div className="text-lg text-ink truncate">{value}</div>
       {sub && <div className="text-xs text-gray-text">{sub}</div>}
     </div>
   );

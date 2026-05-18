@@ -16,7 +16,7 @@ export function FaturamentoMensalChart({ data }: { data: MensalRow[] }) {
   return (
     <section className="bg-card border border-border rounded-lg p-6">
       <div className="mb-4">
-        <h2 className="font-display text-xl text-ink">Faturamento mensal</h2>
+        <h2 className="text-xl text-ink">Faturamento mensal</h2>
         <p className="text-xs text-muted-foreground">Últimos 12 meses</p>
       </div>
       <div className="h-72">

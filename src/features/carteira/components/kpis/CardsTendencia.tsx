@@ -34,7 +34,7 @@ function Card({ Icon, iconClass, label, count, pct, valor, hint, active, onClick
       </div>
       <div className="flex items-end justify-between gap-2">
         <div>
-          <span className="text-[20px] font-medium font-display tabular text-ink">
+          <span className="text-[20px] font-medium tabular text-ink">
             {formatMilhar(count)}
           </span>{" "}
           <span className="text-[11px] text-gray-faint">

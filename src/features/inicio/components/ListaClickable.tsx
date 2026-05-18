@@ -23,7 +23,7 @@ export function ListaClickable({
   return (
     <div className="bg-card border border-border rounded-lg overflow-hidden">
       <div className="px-5 py-4 border-b border-border">
-        <h3 className="font-display text-lg text-ink">{title}</h3>
+        <h3 className="text-lg text-ink">{title}</h3>
         {subtitle && <p className="text-xs text-muted-foreground">{subtitle}</p>}
       </div>
       <div className="divide-y divide-border">

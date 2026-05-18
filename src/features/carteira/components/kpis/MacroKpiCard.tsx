@@ -35,7 +35,7 @@ export function MacroKpiCard({
         type="button"
         onClick={onClickValue}
         className={cn(
-          "text-[22px] font-medium font-display mt-1 text-left tabular hover:opacity-80 transition",
+          "text-[22px] font-medium mt-1 text-left tabular hover:opacity-80 transition",
           valueClass,
         )}
       >

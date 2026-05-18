@@ -68,7 +68,7 @@ export function PedidoHeader({ pedido }: { pedido: Pedido }) {
 
         <div className="text-right">
           <div className="label-caps text-gray-text">Total</div>
-          <div className="font-display text-3xl text-ink tabular">
+          <div className="text-3xl text-ink tabular">
             {formatMoney(pedido.total)}
           </div>
           <div className="text-[11.5px] text-gray-text tabular">

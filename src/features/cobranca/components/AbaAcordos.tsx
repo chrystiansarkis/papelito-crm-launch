@@ -63,7 +63,7 @@ export function AbaAcordos({ active }: AbaAcordosProps) {
     <>
       <section className="space-y-3">
         <div className="flex items-baseline gap-2">
-          <h2 className="font-display text-2xl">Acordos de parcelamento</h2>
+          <h2 className="text-2xl">Acordos de parcelamento</h2>
           <span className="text-sm text-muted-foreground">
             ({acordosAtivos} ativo{acordosAtivos === 1 ? "" : "s"})
           </span>
@@ -87,7 +87,7 @@ export function AbaAcordos({ active }: AbaAcordosProps) {
       <section className="space-y-3">
         <div className="flex items-baseline justify-between gap-2 flex-wrap">
           <div className="flex items-baseline gap-2">
-            <h2 className="font-display text-2xl">Promessas de pagamento</h2>
+            <h2 className="text-2xl">Promessas de pagamento</h2>
             <span className="text-sm text-muted-foreground">
               ({promessasPendentes} pendente{promessasPendentes === 1 ? "" : "s"})
             </span>

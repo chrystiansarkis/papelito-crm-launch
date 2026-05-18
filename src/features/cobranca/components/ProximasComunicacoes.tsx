@@ -13,7 +13,7 @@ export function ProximasComunicacoes({ proximas }: { proximas: ReguaProxima[] })
   return (
     <section className="space-y-3">
       <div className="flex items-baseline gap-2">
-        <h2 className="font-display text-2xl">Próximas comunicações</h2>
+        <h2 className="text-2xl">Próximas comunicações</h2>
         <span className="text-sm text-muted-foreground">
           ({proximas.length} agendada{proximas.length === 1 ? "" : "s"})
         </span>

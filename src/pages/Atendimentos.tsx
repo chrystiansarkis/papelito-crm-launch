@@ -220,7 +220,7 @@ export default function Atendimentos() {
       <section className="space-y-3">
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div className="flex items-center gap-4 flex-wrap">
-            <h2 className="font-display text-xl text-ink">Todos os atendimentos</h2>
+            <h2 className="text-xl text-ink">Todos os atendimentos</h2>
             <ViewTabs value={viewMode} onChange={setViewMode} />
           </div>
           <input

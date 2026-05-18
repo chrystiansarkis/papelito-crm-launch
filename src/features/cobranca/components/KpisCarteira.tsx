@@ -37,7 +37,7 @@ function AgingKpi({ label, value, color }: { label: string; value: number; color
       style={{ borderLeftColor: color }}
     >
       <div className="text-xs uppercase text-muted-foreground">{label}</div>
-      <div className="text-lg font-display mt-0.5 tabular-nums">{formatMoney(value)}</div>
+      <div className="text-lg mt-0.5 tabular-nums">{formatMoney(value)}</div>
     </div>
   );
 }

@@ -8,4 +8,12 @@ export const campanhasVendasKeys = {
   lookups: () => [...campanhasVendasKeys.all, "lookups"] as const,
   contatosCliente: (clienteId: string) =>
     [...campanhasVendasKeys.lookups(), "contatos", clienteId] as const,
+  prePos: (dataInicio: string, clienteIds: string[], codProdutos: string[]) =>
+    [
+      ...campanhasVendasKeys.all,
+      "pre-pos",
+      dataInicio,
+      clienteIds.slice().sort().join(","),
+      codProdutos.slice().sort().join(","),
+    ] as const,
 };

@@ -5,6 +5,7 @@ import { salvarCampanha } from "../api/salvarCampanha";
 import { transicionarCampanha, type TransicaoInput } from "../api/transicionarCampanha";
 import { apurarCampanha } from "../api/apurarCampanha";
 import { encerrarCampanha } from "../api/encerrarCampanha";
+import { getCampanhaPrePos } from "../api/getCampanhaPrePos";
 import { campanhasVendasKeys } from "./queryKeys";
 import type { Campanha, CampanhaFiltro } from "../types";
 
@@ -54,6 +55,31 @@ export function useApurarCampanha() {
       qc.invalidateQueries({ queryKey: campanhasVendasKeys.all });
       qc.setQueryData(campanhasVendasKeys.detalhe(c.id), c);
     },
+  });
+}
+
+export function useCampanhaPrePos(args: {
+  dataInicio: string | null | undefined;
+  clienteIds: string[];
+  codProdutos?: string[];
+  enabled?: boolean;
+}) {
+  const codProdutos = args.codProdutos ?? [];
+  const ativo =
+    (args.enabled ?? true) && !!args.dataInicio && args.clienteIds.length > 0;
+  return useQuery({
+    queryKey: campanhasVendasKeys.prePos(
+      args.dataInicio ?? "",
+      args.clienteIds,
+      codProdutos,
+    ),
+    queryFn: () =>
+      getCampanhaPrePos({
+        dataInicio: args.dataInicio as string,
+        clienteIds: args.clienteIds,
+        codProdutos,
+      }),
+    enabled: ativo,
   });
 }
 

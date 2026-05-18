@@ -23,6 +23,7 @@ import {
   type Campanha,
 } from "../types";
 import { clienteById, contatoById, vendedorById } from "../mocks/fixtures";
+import { CampanhaImpacto } from "./CampanhaImpacto";
 
 function podeAprovar(c: Campanha): string | null {
   if (c.mecanicas.length === 0) return "Adicione ao menos 1 mecânica";
@@ -215,6 +216,7 @@ export function CampanhaDetalhe({ campanha }: { campanha: Campanha }) {
               </span>
             )}
           </TabsTrigger>
+          <TabsTrigger value="impacto">Impacto</TabsTrigger>
         </TabsList>
 
         <TabsContent value="resumo">
@@ -454,6 +456,10 @@ export function CampanhaDetalhe({ campanha }: { campanha: Campanha }) {
               </>
             )}
           </div>
+        </TabsContent>
+
+        <TabsContent value="impacto">
+          <CampanhaImpacto campanha={campanha} />
         </TabsContent>
       </Tabs>
 

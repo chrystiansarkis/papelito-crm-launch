@@ -55,13 +55,16 @@ export type ProdutoLookup = {
 export async function searchProdutosOrcamento(
   tabelaPrecoId: string,
   term: string,
+  clienteId?: string,
 ): Promise<ProdutoLookup[]> {
   if (!tabelaPrecoId) return [];
   const trimmed = (term ?? "").trim();
-  const { data, error } = await publicDb.rpc("fn_buscar_produtos_orcamento" as never, {
+  const params: Record<string, unknown> = {
     p_tabela_preco_id: tabelaPrecoId,
     p_term: trimmed || null,
-  } as never);
+  };
+  if (clienteId) params.p_cliente_id = clienteId;
+  const { data, error } = await publicDb.rpc("fn_buscar_produtos_orcamento" as never, params as never);
   if (error) throw error;
   type Row = {
     cod_produto: string;
@@ -142,6 +145,35 @@ export async function precosProdutosNaTabela(
     out[r.cod_produto] = Number(r.vlr_unit) || 0;
   }
   return out;
+}
+
+export type DescontoRecalculado = {
+  cod_produto: string;
+  vlr_unit: number;
+  vlr_desc: number;
+};
+
+// Recalcula vlr_desc para uma lista de produtos considerando os descontos do
+// cliente (whitelist em crm.tabela_preco_desconto_cliente). Usa a RPC
+// fn_descontos_orcamento_recalcular (SECURITY DEFINER).
+export async function recalcularDescontosOrcamento(
+  tabelaPrecoId: string,
+  clienteId: string,
+  codProdutos: string[],
+): Promise<DescontoRecalculado[]> {
+  if (!tabelaPrecoId || !clienteId || codProdutos.length === 0) return [];
+  const { data, error } = await publicDb.rpc("fn_descontos_orcamento_recalcular" as never, {
+    p_tabela_preco_id: tabelaPrecoId,
+    p_cliente_id: clienteId,
+    p_cod_produtos: codProdutos,
+  } as never);
+  if (error) throw error;
+  type Row = { cod_produto: string; vlr_unit: number | string; vlr_desc: number | string };
+  return ((data ?? []) as Row[]).map((r) => ({
+    cod_produto: r.cod_produto,
+    vlr_unit: Number(r.vlr_unit) || 0,
+    vlr_desc: Number(r.vlr_desc) || 0,
+  }));
 }
 
 export type TabelaPrecoLookup = { id: string; nome: string };

@@ -23,6 +23,13 @@ export { useVendedoresProtheus } from "./hooks/useVendedoresProtheus";
 export { useTabelasPreco } from "./hooks/useTabelasPreco";
 export { useUfs, useCidades, useMatrizSearch } from "./hooks/useLookups";
 export { SearchSelect } from "./components/SearchSelect";
+export { ClienteFormView, type ClienteFormViewProps, type Errors as ClienteFormErrors } from "./components/ClienteFormView";
+export {
+  getCadastroCliente,
+  type CadastroClienteResult,
+  type CadastroOrigem,
+} from "./api/getCadastroCliente";
+export { useCadastroCliente } from "./hooks/useCadastroCliente";
 export type { UfOption, CidadeOption, MatrizOption } from "./api/lookups";
 export type { VendedorProtheusOption } from "./api/listVendedoresProtheus";
 export type { TabelaPrecoOption } from "./api/listTabelasPreco";

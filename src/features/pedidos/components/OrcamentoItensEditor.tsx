@@ -20,6 +20,7 @@ import { useProdutosSearch } from "../hooks/useOrcamentoLookups";
 export type OrcamentoItensEditorProps = {
   itens: OrcamentoItemForm[];
   tabelaPrecoId: string;
+  clienteId?: string;
   onChange: (itens: OrcamentoItemForm[]) => void;
   errors: Record<string, string>;
 };
@@ -27,6 +28,7 @@ export type OrcamentoItensEditorProps = {
 export function OrcamentoItensEditor({
   itens,
   tabelaPrecoId,
+  clienteId,
   onChange,
   errors,
 }: OrcamentoItensEditorProps) {
@@ -88,6 +90,7 @@ export function OrcamentoItensEditor({
                 idx={idx}
                 item={it}
                 tabelaPrecoId={tabelaPrecoId}
+                clienteId={clienteId}
                 onPatch={(p) => patch(idx, p)}
                 onRemove={() => remove(idx)}
                 errors={errors}
@@ -109,15 +112,35 @@ export function OrcamentoItensEditor({
       </div>
 
       <div className="flex items-center justify-between gap-3">
-        <button
-          type="button"
-          onClick={add}
-          disabled={!tabelaPrecoId}
-          className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-[12px] font-medium bg-white border border-gray-line rounded-md hover:border-brand hover:text-brand transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-gray-line disabled:hover:text-ink"
-        >
-          <Plus className="w-3 h-3" strokeWidth={2.5} />
-          Adicionar item
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={add}
+            disabled={!tabelaPrecoId}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-[12px] font-medium bg-white border border-gray-line rounded-md hover:border-brand hover:text-brand transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-gray-line disabled:hover:text-ink"
+          >
+            <Plus className="w-3 h-3" strokeWidth={2.5} />
+            Adicionar item
+          </button>
+          {itens.length > 0 && (
+            <button
+              type="button"
+              onClick={() => {
+                if (
+                  window.confirm(
+                    `Limpar todos os ${itens.length} ${itens.length === 1 ? "item" : "itens"} do orçamento?`,
+                  )
+                ) {
+                  onChange([]);
+                }
+              }}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-[12px] font-medium bg-white border border-gray-line rounded-md hover:border-bad hover:text-bad transition-all"
+            >
+              <Trash2 className="w-3 h-3" strokeWidth={2.5} />
+              Limpar itens
+            </button>
+          )}
+        </div>
         <div className="text-[11.5px] text-gray-text tabular">
           Subtotal {formatMoney(totals.subtotal)} · Desc. {formatMoney(totals.desconto)} ·{" "}
           <span className="text-ink font-medium">Total {formatMoney(totals.total)}</span>
@@ -135,6 +158,7 @@ function Row({
   idx,
   item,
   tabelaPrecoId,
+  clienteId,
   onPatch,
   onRemove,
   errors,
@@ -142,21 +166,33 @@ function Row({
   idx: number;
   item: OrcamentoItemForm;
   tabelaPrecoId: string;
+  clienteId?: string;
   onPatch: (p: Partial<OrcamentoItemForm>) => void;
   onRemove: () => void;
   errors: Record<string, string>;
 }) {
   const [term, setTerm] = useState("");
-  const prodQuery = useProdutosSearch(tabelaPrecoId, term);
-  const opts = useMemo(
-    () =>
-      (prodQuery.data ?? []).map((p) => ({
-        value: p.cod_produto,
-        label: p.nome,
-        hint: [p.unidade ?? undefined, formatMoney(p.vlr_unit)].filter(Boolean).join(" · "),
-      })),
-    [prodQuery.data],
-  );
+  const prodQuery = useProdutosSearch(tabelaPrecoId, term, clienteId);
+  const opts = useMemo(() => {
+    const list = (prodQuery.data ?? []).map((p) => ({
+      value: p.cod_produto,
+      label: p.nome,
+      hint: [p.unidade ?? undefined, formatMoney(p.vlr_unit)].filter(Boolean).join(" · "),
+    }));
+    // Garante que o produto ja selecionado (ex: vindo do pre-fill de Top SKUs)
+    // tenha um option correspondente, mesmo antes da query buscar essa pagina
+    // de produtos. Sem isso o SearchSelect mostra placeholder em branco.
+    if (item.cod_produto && !list.some((o) => o.value === item.cod_produto)) {
+      list.unshift({
+        value: item.cod_produto,
+        label: item.produto_nome || item.cod_produto,
+        hint: [item.unidade || undefined, item.vlr_unit ? formatMoney(item.vlr_unit) : undefined]
+          .filter(Boolean)
+          .join(" · "),
+      });
+    }
+    return list;
+  }, [prodQuery.data, item.cod_produto, item.produto_nome, item.unidade, item.vlr_unit]);
 
   const total = (Number(item.qtd) || 0) * (Number(item.vlr_unit) || 0) - (Number(item.vlr_desc) || 0);
   const qtdStep = item.somente_caixa_master ? Math.max(1, item.qtd_caixa_master) : 1;

@@ -8,6 +8,7 @@ import { Inicio } from "./pages/Inicio";
 import Carteira from "@/pages/Carteira";
 import CarteiraNovo from "@/pages/CarteiraNovo";
 import Cliente from "@/pages/Cliente";
+import ClienteEditar from "@/pages/ClienteEditar";
 import Cobranca from "@/pages/Cobranca";
 import Pedidos from "@/pages/Pedidos";
 import PedidoPage from "@/pages/Pedido";
@@ -41,6 +42,7 @@ export default function App() {
               <Route path="/carteira" element={<Carteira />} />
               <Route path="/carteira/novo" element={<CarteiraNovo />} />
               <Route path="/cliente/:id" element={<Cliente />} />
+              <Route path="/cliente/:id/editar" element={<ClienteEditar />} />
               <Route path="/cobranca" element={<Cobranca />} />
               <Route path="/pedidos" element={<Pedidos />} />
               <Route path="/pedidos/novo" element={<PedidoNovo />} />

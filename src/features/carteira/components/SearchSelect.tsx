@@ -3,7 +3,7 @@
 // SearchSelect: combobox simples com input + dropdown filtrado. Não depende
 // de bibliotecas pesadas — usa <input>, <ul> e estado local. Pra listas
 // pequenas/médias (UFs, cidades por UF, top clientes), suficiente.
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 
 export type SearchOption = {
@@ -38,6 +38,11 @@ export function SearchSelect({
   const [open, setOpen] = useState(false);
   const [term, setTerm] = useState("");
   const wrapRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  // Posiciona o dropdown via fixed pra escapar de ancestral com overflow:auto/hidden
+  // (caso da tabela do orcamento — overflow-x-auto clipa o eixo y tambem).
+  const [dropPos, setDropPos] = useState<{ top: number; left: number; width: number } | null>(null);
 
   // Cache do último option escolhido — quando as options mudam (ex: limpamos
   // o termo de busca após selecionar uma cidade), o option escolhido pode
@@ -65,12 +70,36 @@ export function SearchSelect({
 
   useEffect(() => {
     function onClickOutside(e: MouseEvent) {
-      if (!wrapRef.current) return;
-      if (!wrapRef.current.contains(e.target as Node)) setOpen(false);
+      const target = e.target as Node;
+      const insideWrap = wrapRef.current?.contains(target) ?? false;
+      const insideDrop = dropdownRef.current?.contains(target) ?? false;
+      if (!insideWrap && !insideDrop) setOpen(false);
     }
     document.addEventListener("mousedown", onClickOutside);
     return () => document.removeEventListener("mousedown", onClickOutside);
   }, []);
+
+  // Calcula posicao do dropdown quando abre. Atualiza em scroll (capture pra
+  // pegar scrolls de qualquer ancestor) e resize.
+  useLayoutEffect(() => {
+    if (!open) {
+      setDropPos(null);
+      return;
+    }
+    function recompute() {
+      const btn = buttonRef.current;
+      if (!btn) return;
+      const r = btn.getBoundingClientRect();
+      setDropPos({ top: r.bottom + 4, left: r.left, width: r.width });
+    }
+    recompute();
+    window.addEventListener("scroll", recompute, true);
+    window.addEventListener("resize", recompute);
+    return () => {
+      window.removeEventListener("scroll", recompute, true);
+      window.removeEventListener("resize", recompute);
+    };
+  }, [open]);
 
   useEffect(() => {
     if (onSearchChange) onSearchChange(term);
@@ -93,6 +122,7 @@ export function SearchSelect({
   return (
     <div ref={wrapRef} className="relative">
       <button
+        ref={buttonRef}
         type="button"
         disabled={disabled}
         onClick={() => !disabled && setOpen((o) => !o)}
@@ -123,8 +153,12 @@ export function SearchSelect({
         )}
       </button>
 
-      {open && !disabled && (
-        <div className="absolute z-20 mt-1 w-full bg-white border border-gray-line rounded-md shadow-lg max-h-60 overflow-hidden flex flex-col">
+      {open && !disabled && dropPos && (
+        <div
+          ref={dropdownRef}
+          className="fixed z-50 bg-white border border-gray-line rounded-md shadow-lg max-h-60 overflow-hidden flex flex-col"
+          style={{ top: dropPos.top, left: dropPos.left, width: dropPos.width }}
+        >
           <input
             autoFocus
             value={term}

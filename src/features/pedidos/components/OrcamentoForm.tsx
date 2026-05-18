@@ -5,11 +5,13 @@
 // OrcamentoForm: espelha o padrao de CarteiraNovo (Section/Grid/Field).
 // Modo create: nao recebe id. Modo edit: recebe orcamento + itens iniciais.
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { ExternalLink } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
 import { SearchSelect } from "@/features/carteira";
 import { OrcamentoItensEditor } from "./OrcamentoItensEditor";
-import { PreFillSugestoes } from "./PreFillSugestoes";
+import { TopSkusEAlertasOrcamento } from "./TopSkusEAlertasOrcamento";
+import { prepararTopSkusComoItens } from "../lib/prepararTopSkus";
 import { StatusTransitions } from "./StatusTransitions";
 import { EnviarEmailModal } from "./EnviarEmailModal";
 import {
@@ -18,6 +20,9 @@ import {
   useTabelasPreco,
 } from "../hooks/useOrcamentoLookups";
 import { useSalvarOrcamento } from "../hooks/useSalvarOrcamento";
+import { useAnaliseUltimos5Pedidos } from "../hooks/useAnaliseUltimos5Pedidos";
+import { precosProdutosNaTabela, recalcularDescontosOrcamento } from "../api/lookups";
+import { useFichaCliente } from "@/features/cliente";
 import { RegistrarBonificacaoDialog } from "@/features/bonificacoes";
 import {
   salvarOrcamentoSchema,
@@ -43,6 +48,9 @@ export type OrcamentoFormProps = {
 
 export function OrcamentoForm({ mode, orcamento, itensIniciais }: OrcamentoFormProps) {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const clienteIdInicial = mode === "create" ? (searchParams.get("cliente_id") ?? "") : "";
+  const clienteNomeInicial = mode === "create" ? (searchParams.get("cliente_nome") ?? "") : "";
   const mutation = useSalvarOrcamento();
   const [form, setForm] = useState<SalvarOrcamentoForm>(() => {
     if (mode === "edit" && orcamento) {
@@ -68,11 +76,55 @@ export function OrcamentoForm({ mode, orcamento, itensIniciais }: OrcamentoFormP
         })),
       };
     }
-    return { ...SALVAR_ORCAMENTO_INITIAL };
+    return { ...SALVAR_ORCAMENTO_INITIAL, cliente_id: clienteIdInicial };
   });
   const [errors, setErrors] = useState<Errors>({});
   const [emailModalOpen, setEmailModalOpen] = useState(false);
   const [bonifModal, setBonifModal] = useState<{ orcId: string; clienteId: string } | null>(null);
+  const [overrideTabela, setOverrideTabela] = useState(false);
+  const [recalcLoading, setRecalcLoading] = useState(false);
+
+  async function handleRecalcularDescontos() {
+    const tabId = form.tabela_preco_id;
+    const cliId = form.cliente_id;
+    if (!tabId || !cliId) return;
+    const comProduto = form.itens.filter((it) => !!it.cod_produto);
+    if (comProduto.length === 0) {
+      toast.info("Adicione produtos primeiro");
+      return;
+    }
+    const codProdutos = Array.from(
+      new Set(comProduto.map((it) => it.cod_produto as string)),
+    );
+    setRecalcLoading(true);
+    try {
+      const recalculados = await recalcularDescontosOrcamento(tabId, cliId, codProdutos);
+      const mapa = new Map(recalculados.map((r) => [r.cod_produto, r]));
+      let atualizados = 0;
+      setForm((p) => ({
+        ...p,
+        itens: p.itens.map((it) => {
+          if (!it.cod_produto) return it;
+          const r = mapa.get(it.cod_produto);
+          if (!r) return it;
+          if (r.vlr_desc !== it.vlr_desc) atualizados += 1;
+          return { ...it, vlr_desc: r.vlr_desc };
+        }),
+      }));
+      if (atualizados === 0) {
+        toast.info("Nenhum desconto alterado", {
+          description: "Os descontos atuais já refletem as regras do cliente.",
+        });
+      } else {
+        toast.success(`Descontos recalculados (${atualizados} ${atualizados === 1 ? "item" : "itens"})`);
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Erro desconhecido";
+      toast.error("Não foi possível recalcular", { description: msg });
+    } finally {
+      setRecalcLoading(false);
+    }
+  }
 
   function set<K extends keyof SalvarOrcamentoForm>(key: K, value: SalvarOrcamentoForm[K]) {
     setForm((p) => ({ ...p, [key]: value }));
@@ -181,29 +233,64 @@ export function OrcamentoForm({ mode, orcamento, itensIniciais }: OrcamentoFormP
 
   const tabelaClienteQuery = useTabelaPrecoCliente(form.cliente_id || undefined);
 
-  function clearItensProduto(itens: OrcamentoItemForm[]): OrcamentoItemForm[] {
-    return itens.map((it) => ({
-      ...it,
-      cod_produto: "",
-      produto_nome: "",
-      unidade: "",
-      vlr_unit: 0,
-    }));
-  }
-
-  function handleTabelaPrecoChange(novoId: string) {
-    // Trocou a tabela manualmente: limpa vlr_unit/cod_produto/unidade dos
-    // itens (precos sao por tabela). Mantem qtd e desconto.
-    setForm((p) => ({
-      ...p,
-      tabela_preco_id: novoId,
-      itens: clearItensProduto(p.itens),
-    }));
+  // Trocou a tabela manualmente: re-resolve precos e descontos dos itens
+  // existentes contra a nova tabela, em vez de zerar tudo. Itens cujo produto
+  // nao existe na nova tabela sao removidos com aviso. Linhas vazias (sem
+  // cod_produto) sao descartadas pra evitar "fantasmas".
+  async function handleTabelaPrecoChange(novoId: string) {
+    setOverrideTabela(novoId !== (tabelaClienteQuery.data?.id ?? ""));
+    setForm((p) => ({ ...p, tabela_preco_id: novoId }));
     setErrors((p) => {
       if (!p["tabela_preco_id"]) return p;
       const { tabela_preco_id: _omitted, ...rest } = p;
       return rest;
     });
+
+    const itensAtuais = form.itens;
+    const comProduto = itensAtuais.filter((it) => !!it.cod_produto);
+    if (!novoId || comProduto.length === 0) return;
+
+    const codProdutos = Array.from(new Set(comProduto.map((it) => it.cod_produto as string)));
+    try {
+      const cliId = form.cliente_id;
+      // Mapa cod_produto -> { vlr_unit, vlr_desc }
+      const mapa = new Map<string, { vlr_unit: number; vlr_desc: number }>();
+      if (cliId) {
+        const recalculados = await recalcularDescontosOrcamento(novoId, cliId, codProdutos);
+        for (const r of recalculados) {
+          mapa.set(r.cod_produto, { vlr_unit: r.vlr_unit, vlr_desc: r.vlr_desc });
+        }
+      } else {
+        const precos = await precosProdutosNaTabela(novoId, codProdutos);
+        for (const [cod, vlr] of Object.entries(precos)) {
+          mapa.set(cod, { vlr_unit: vlr, vlr_desc: 0 });
+        }
+      }
+
+      const semPreco: string[] = [];
+      setForm((p) => {
+        const proximos: OrcamentoItemForm[] = [];
+        for (const it of p.itens) {
+          if (!it.cod_produto) continue; // descarta linhas vazias
+          const r = mapa.get(it.cod_produto);
+          if (!r) {
+            semPreco.push(it.produto_nome || it.cod_produto);
+            continue;
+          }
+          proximos.push({ ...it, vlr_unit: r.vlr_unit, vlr_desc: r.vlr_desc });
+        }
+        return { ...p, itens: proximos };
+      });
+
+      if (semPreco.length > 0) {
+        toast.info(`${semPreco.length} item(s) removido(s) — sem preço na nova tabela`, {
+          description: semPreco.slice(0, 3).join(", ") + (semPreco.length > 3 ? "…" : ""),
+        });
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Erro desconhecido";
+      toast.error("Não foi possível recalcular itens na nova tabela", { description: msg });
+    }
   }
 
   // Auto-aplica a tabela de preco vinda do cadastro do cliente quando o
@@ -222,11 +309,15 @@ export function OrcamentoForm({ mode, orcamento, itensIniciais }: OrcamentoFormP
     if (tabelaClienteQuery.isPending || tabelaClienteQuery.isFetching) return;
 
     lastAppliedClienteRef.current = cliente;
+    setOverrideTabela(false);
     const tab = tabelaClienteQuery.data;
+    // Cliente trocou: esvazia itens (o auto-prefill vai recarregar os top SKUs
+    // do novo cliente). Em modo edit isso nao roda porque o cliente inicial ja
+    // esta marcado em lastAppliedClienteRef.
     setForm((p) => ({
       ...p,
       tabela_preco_id: tab?.id ?? "",
-      itens: clearItensProduto(p.itens),
+      itens: [],
     }));
     setErrors((p) => {
       if (!p["tabela_preco_id"]) return p;
@@ -252,6 +343,63 @@ export function OrcamentoForm({ mode, orcamento, itensIniciais }: OrcamentoFormP
       // cache interno de lastSelected.
     }
   }, [mode, orcamento, clienteTerm]);
+
+  // Auto-prefill: no modo create, quando o cliente esta selecionado, a tabela
+  // de preco resolvida e a ficha + analise carregaram, pre-carrega os top SKUs
+  // como itens (uma vez por cliente). Se o vendedor ja adicionou itens
+  // manualmente, nao mexe.
+  const ficha = useFichaCliente(mode === "create" ? form.cliente_id || undefined : undefined);
+  const analise5 = useAnaliseUltimos5Pedidos(
+    mode === "create" ? form.cliente_id || undefined : undefined,
+  );
+  const autoPrefillRef = useRef<string>("");
+  useEffect(() => {
+    if (mode !== "create") return;
+    if (!form.cliente_id || !form.tabela_preco_id) return;
+    const key = `${form.cliente_id}|${form.tabela_preco_id}`;
+    if (autoPrefillRef.current === key) return;
+    if (form.itens.length > 0) {
+      // Vendedor ja mexeu nos itens. Marca como aplicado pra nao tentar de novo.
+      autoPrefillRef.current = key;
+      return;
+    }
+    if (ficha.topSkus.isPending || analise5.isLoading) return;
+    autoPrefillRef.current = key;
+    const top = ficha.topSkus.data?.top ?? [];
+    if (top.length === 0) return;
+    void prepararTopSkusComoItens(
+      top,
+      analise5.data?.itens_recorrentes ?? [],
+      form.tabela_preco_id,
+    )
+      .then(({ itens, semPreco }) => {
+        if (itens.length === 0) return;
+        setForm((p) => (p.itens.length === 0 ? { ...p, itens } : p));
+        if (semPreco.length > 0) {
+          toast.info(
+            `Top SKUs pré-carregados (${itens.length}) — ${semPreco.length} sem preço na tabela`,
+            {
+              description: semPreco.slice(0, 3).join(", ") + (semPreco.length > 3 ? "…" : ""),
+            },
+          );
+        } else {
+          toast.success(`${itens.length} top SKU(s) pré-carregados no orçamento`);
+        }
+      })
+      .catch((err: unknown) => {
+        const msg = err instanceof Error ? err.message : "Erro desconhecido";
+        toast.error("Não foi possível pré-carregar os top SKUs", { description: msg });
+      });
+  }, [
+    mode,
+    form.cliente_id,
+    form.tabela_preco_id,
+    form.itens.length,
+    ficha.topSkus.data,
+    ficha.topSkus.isPending,
+    analise5.data,
+    analise5.isLoading,
+  ]);
 
   return (
     <div className="flex flex-col min-h-full">
@@ -293,51 +441,103 @@ export function OrcamentoForm({ mode, orcamento, itensIniciais }: OrcamentoFormP
                               hint: undefined,
                             },
                           ]
-                        : []
+                        : clienteIdInicial && clienteNomeInicial
+                          ? [
+                              {
+                                value: clienteIdInicial,
+                                label: clienteNomeInicial,
+                                hint: undefined,
+                              },
+                            ]
+                          : []
                   }
                   placeholder="Buscar cliente por nome ou CNPJ..."
                   loading={clientesQuery.isLoading || clientesQuery.isFetching}
                   onSearchChange={setClienteTerm}
                   emptyLabel="Nenhum cliente encontrado"
                 />
+                {form.cliente_id && (
+                  <a
+                    href={`/cliente/${form.cliente_id}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-1.5 inline-flex items-center gap-1 text-[11.5px] text-gray-text hover:text-brand transition-colors"
+                  >
+                    <ExternalLink className="w-3 h-3" strokeWidth={2} />
+                    Abrir carteira do cliente em nova aba
+                  </a>
+                )}
               </Field>
             </Grid>
           </Section>
 
-          <Section title="Analise dos ultimos 5 pedidos" subtitle="Sugestoes baseadas no historico.">
-            <PreFillSugestoes
-              clienteId={form.cliente_id}
-              tabelaPrecoId={form.tabela_preco_id ?? ""}
-              onAplicarItens={(itens) => {
-                setForm((p) => ({ ...p, itens: [...p.itens, ...itens] }));
-              }}
-            />
-          </Section>
+          {form.cliente_id && (
+            <Section
+              title="Top SKUs e alertas do cliente"
+              subtitle="Resumo da ficha do cliente — Top SKUs são pré-carregados como itens ao iniciar um novo orçamento."
+            >
+              <TopSkusEAlertasOrcamento
+                clienteId={form.cliente_id}
+                tabelaPrecoId={form.tabela_preco_id ?? ""}
+                onAplicarItens={(itens) => {
+                  setForm((p) => ({ ...p, itens: [...p.itens, ...itens] }));
+                }}
+              />
+            </Section>
+          )}
 
           <Section title="Comercial">
             <Grid>
               <Field label="Tabela de preco" required error={errors["tabela_preco_id"]}>
-                {tabelaFromCliente ? (
-                  <div className="w-full px-3 py-2 text-[13px] bg-gray-soft/40 border border-gray-line rounded-md text-ink">
-                    {tabelaClienteQuery.data?.nome}
-                    <span className="ml-2 text-[11px] text-gray-text">
-                      · vinda do cadastro do cliente
-                    </span>
+                {tabelaFromCliente && !overrideTabela ? (
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <div className="flex-1 min-w-0 px-3 py-2 text-[13px] bg-gray-soft/40 border border-gray-line rounded-md text-ink">
+                      {tabelaClienteQuery.data?.nome}
+                      <span className="ml-2 text-[11px] text-gray-text">
+                        · vinda do cadastro do cliente
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setOverrideTabela(true)}
+                      className="px-2.5 py-1.5 text-[11.5px] font-medium bg-white border border-gray-line rounded-md hover:border-brand hover:text-brand transition-all whitespace-nowrap"
+                    >
+                      Trocar tabela
+                    </button>
                   </div>
                 ) : (
-                  <SearchSelect
-                    value={form.tabela_preco_id ?? ""}
-                    onChange={handleTabelaPrecoChange}
-                    options={tabelaPrecoOptions}
-                    placeholder={
-                      form.cliente_id
-                        ? "Cliente sem tabela cadastrada — escolha uma"
-                        : "Selecione o cliente primeiro"
-                    }
-                    loading={tabelasQuery.isLoading || tabelaClienteQuery.isFetching}
-                    disabled={!form.cliente_id}
-                    emptyLabel="Nenhuma tabela de preco ativa"
-                  />
+                  <div className="space-y-1">
+                    <SearchSelect
+                      value={form.tabela_preco_id ?? ""}
+                      onChange={handleTabelaPrecoChange}
+                      options={tabelaPrecoOptions}
+                      placeholder={
+                        form.cliente_id
+                          ? tabelaClienteQuery.data
+                            ? "Sobrescrevendo tabela do cadastro — escolha uma"
+                            : "Cliente sem tabela cadastrada — escolha uma"
+                          : "Selecione o cliente primeiro"
+                      }
+                      loading={tabelasQuery.isLoading || tabelaClienteQuery.isFetching}
+                      disabled={!form.cliente_id}
+                      emptyLabel="Nenhuma tabela de preco ativa"
+                    />
+                    {tabelaClienteQuery.data && overrideTabela && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setOverrideTabela(false);
+                          const tabId = tabelaClienteQuery.data?.id ?? "";
+                          if (tabId !== form.tabela_preco_id) {
+                            handleTabelaPrecoChange(tabId);
+                          }
+                        }}
+                        className="text-[11px] text-gray-text hover:text-brand transition-colors"
+                      >
+                        ← Voltar para a tabela do cadastro ({tabelaClienteQuery.data.nome})
+                      </button>
+                    )}
+                  </div>
                 )}
               </Field>
               <Field label="Condicao de pagamento" error={errors["condicao_pgto"]}>
@@ -380,10 +580,27 @@ export function OrcamentoForm({ mode, orcamento, itensIniciais }: OrcamentoFormP
           <Section
             title="Itens"
             subtitle="Linhas do orcamento. O status 'ruptura' e decisao do orcamento inteiro — sem flag por item."
+            action={
+              <button
+                type="button"
+                onClick={handleRecalcularDescontos}
+                disabled={
+                  !form.cliente_id ||
+                  !form.tabela_preco_id ||
+                  recalcLoading ||
+                  form.itens.filter((it) => !!it.cod_produto).length === 0
+                }
+                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-[12px] font-medium bg-white border border-gray-line rounded-md hover:border-brand hover:text-brand transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Reaplica os descontos cadastrados para o cliente em todos os itens"
+              >
+                {recalcLoading ? "Recalculando..." : "Recalcular descontos"}
+              </button>
+            }
           >
             <OrcamentoItensEditor
               itens={form.itens}
               tabelaPrecoId={form.tabela_preco_id ?? ""}
+              clienteId={form.cliente_id || undefined}
               onChange={(itens) => set("itens", itens)}
               errors={errors}
             />

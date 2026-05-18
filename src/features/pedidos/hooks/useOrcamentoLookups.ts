@@ -16,10 +16,10 @@ export function useClientesSearch(term: string) {
   });
 }
 
-export function useProdutosSearch(tabelaPrecoId: string, term: string) {
+export function useProdutosSearch(tabelaPrecoId: string, term: string, clienteId?: string) {
   return useQuery({
-    queryKey: ["orcamentos", "lookups", "produtos", tabelaPrecoId, term],
-    queryFn: () => searchProdutosOrcamento(tabelaPrecoId, term),
+    queryKey: ["orcamentos", "lookups", "produtos", tabelaPrecoId, term, clienteId ?? ""],
+    queryFn: () => searchProdutosOrcamento(tabelaPrecoId, term, clienteId),
     enabled: !!tabelaPrecoId,
     staleTime: 1000 * 60,
   });

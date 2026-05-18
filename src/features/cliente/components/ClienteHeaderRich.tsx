@@ -1,4 +1,5 @@
 import { Edit3, Plus, MoreVertical } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { Pill, type PillVariant } from "@/components/common/Pill";
 import { formatCnpj } from "@/lib/format";
 import { saudeToStatus } from "@/features/carteira/lib/mapSaude";
@@ -26,9 +27,22 @@ export function ClienteHeaderRich({
   rankingPos: number | null;
   clienteDesde: string | null;
 }) {
+  const navigate = useNavigate();
   const statusKey = saudeToStatus(cliente.saude);
   const saudeVariant: PillVariant = statusKey;
   const desdeAno = ano(clienteDesde);
+
+  function handleNovoOrcamento() {
+    const params = new URLSearchParams({
+      cliente_id: cliente.id,
+      cliente_nome: cliente.nome,
+    });
+    navigate(`/pedidos/novo?${params.toString()}`);
+  }
+
+  function handleEditar() {
+    navigate(`/cliente/${cliente.id}/editar`);
+  }
 
   return (
     <div className="px-6 py-4 flex items-start justify-between gap-6 flex-wrap">
@@ -77,11 +91,19 @@ export function ClienteHeaderRich({
           </div>
         </div>
         <div className="flex items-center gap-1.5">
-          <button className="h-9 px-3 text-sm rounded-md border border-gray-line bg-white text-ink hover:bg-gray-soft inline-flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={handleEditar}
+            className="h-9 px-3 text-sm rounded-md border border-gray-line bg-white text-ink hover:bg-gray-soft inline-flex items-center gap-1.5"
+          >
             <Edit3 size={14} /> Editar
           </button>
-          <button className="h-9 px-3 text-sm font-medium rounded-md bg-brand text-ink hover:bg-brand-deep inline-flex items-center gap-1.5">
-            <Plus size={14} /> Nova ação
+          <button
+            type="button"
+            onClick={handleNovoOrcamento}
+            className="h-9 px-3 text-sm font-medium rounded-md bg-brand text-ink hover:bg-brand-deep inline-flex items-center gap-1.5"
+          >
+            <Plus size={14} /> Novo orçamento
           </button>
           <button
             aria-label="mais"

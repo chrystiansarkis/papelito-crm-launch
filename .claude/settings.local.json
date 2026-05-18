@@ -85,7 +85,8 @@
       "Read(//c/Users/Papelito/Downloads/Beastly-20260515T203615Z-3-001/Beastly/**)",
       "PowerShell(Get-ChildItem \"c:\\\\repo\\\\papelito-crm-launch\\\\public\\\\fonts\\\\beastly\\\\\" | Select-Object Name, @{N='KB';E={[math]::Round\\($_.Length/1KB,1\\)}})",
       "Bash(ls \"/c/Users/Papelito/Downloads/PP Neue-20260515T204123Z-3-001/PP Neue/\")",
-      "Read(//c/Users/Papelito/Downloads/PP Neue-20260515T204123Z-3-001/PP Neue//**)"
+      "Read(//c/Users/Papelito/Downloads/PP Neue-20260515T204123Z-3-001/PP Neue//**)",
+      "Bash(grep -E \"\\\\.\\(ts|tsx\\)$\")"
     ],
     "additionalDirectories": [
       "c:\\repo\\papelito-crm-launch"

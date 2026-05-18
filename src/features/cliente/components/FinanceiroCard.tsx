@@ -55,6 +55,26 @@ export function FinanceiroCard({ cliente }: { cliente: ClienteFicha }) {
     [titulosFiltrados],
   );
 
+  const prazoMedioReceb = useMemo(() => {
+    const all = titulosQ.data ?? [];
+    let somaPeso = 0;
+    let somaPesoDias = 0;
+    for (const t of all) {
+      if (!t.baixado_em || !t.emissao) continue;
+      const peso = Number(t.valor_recebido) || 0;
+      if (peso <= 0) continue;
+      const diff = Math.floor(
+        (new Date(t.baixado_em).getTime() - new Date(t.emissao).getTime()) /
+          86400000,
+      );
+      if (!Number.isFinite(diff) || diff < 0) continue;
+      somaPeso += peso;
+      somaPesoDias += peso * diff;
+    }
+    if (somaPeso === 0) return null;
+    return somaPesoDias / somaPeso;
+  }, [titulosQ.data]);
+
   return (
     <div className="space-y-4">
       <SectionCard title="Resumo financeiro">
@@ -77,6 +97,23 @@ export function FinanceiroCard({ cliente }: { cliente: ClienteFicha }) {
             label="Maior atraso"
             value={`${cliente.dias_maximo_atraso ?? 0} dias`}
             tone={(cliente.dias_maximo_atraso ?? 0) > 30 ? "bad" : "neutral"}
+          />
+          <Indicador
+            label="Prazo médio receb."
+            value={
+              prazoMedioReceb == null
+                ? "—"
+                : `${prazoMedioReceb.toFixed(0)} dias`
+            }
+            tone={
+              prazoMedioReceb == null
+                ? "neutral"
+                : prazoMedioReceb > 45
+                ? "bad"
+                : prazoMedioReceb > 30
+                ? "warn"
+                : "neutral"
+            }
           />
           {cliente.limite_credito != null && (
             <Indicador

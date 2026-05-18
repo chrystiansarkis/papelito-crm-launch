@@ -16,6 +16,7 @@ import {
   AnaliseTab,
   CrescimentoTab,
   DreTab,
+  GrupoFiliaisTab,
   useFichaCliente,
 } from "@/features/cliente";
 import { ProtheusStatusCard } from "@/features/carteira/components/ProtheusStatusCard";
@@ -84,6 +85,7 @@ export default function Cliente() {
         {tab === "contatos" && id && (
           <ContatosCard contatos={ficha.contatos.data ?? []} clienteId={id} />
         )}
+        {tab === "grupo" && id && <GrupoFiliaisTab clienteId={id} />}
         {tab === "atendimentos" && <EmConstrucaoPane titulo="Atendimentos do cliente" />}
         {tab === "anotacoes" && (
           <ObservacoesCard observacoes={ficha.observacoes.data ?? []} />

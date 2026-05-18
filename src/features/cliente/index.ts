@@ -13,6 +13,7 @@ export { VendasMixTab } from "./components/vendasMix/VendasMixTab";
 export { AnaliseTab } from "./components/analise/AnaliseTab";
 export { CrescimentoTab } from "./components/crescimento/CrescimentoTab";
 export { DreTab } from "./components/dre/DreTab";
+export { GrupoFiliaisTab } from "./components/GrupoFiliaisTab";
 export {
   useClienteFicha,
   useClientePedidos,

@@ -22,7 +22,7 @@ export function KpisCarteira({ kpis }: { kpis: CobrancaKpis | null | undefined }
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <AgingKpi label="1–30 dias" value={kpis?.vencido_1_30 ?? 0} color="#F5C518" />
+        <AgingKpi label="1–30 dias" value={kpis?.vencido_1_30 ?? 0} color="#FCD930" />
         <AgingKpi label="31–90 dias" value={kpis?.vencido_31_90 ?? 0} color="#F59E0B" />
         <AgingKpi label="91+ dias" value={kpis?.vencido_91_mais ?? 0} color="#EF4444" />
       </div>

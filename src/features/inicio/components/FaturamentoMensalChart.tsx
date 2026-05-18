@@ -10,7 +10,7 @@ import {
 import { formatMoney, formatMoneyShort, formatMesRef } from "@/lib/format";
 import type { MensalRow } from "../types";
 
-const YELLOW = "#F5C518";
+const YELLOW = "#FCD930";
 
 export function FaturamentoMensalChart({ data }: { data: MensalRow[] }) {
   return (

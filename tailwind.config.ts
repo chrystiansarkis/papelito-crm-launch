@@ -24,7 +24,7 @@ export default {
         // Papelito core
         paper: "#FAFAF6",
         ink: {
-          DEFAULT: "#161616",
+          DEFAULT: "#231F20",
           soft: "#3B3B3B",
         },
 
@@ -36,15 +36,15 @@ export default {
 
         // Brand (yellow)
         brand: {
-          DEFAULT: "#F5C518",
+          DEFAULT: "#FCD930",
           soft: "#FEFAE6",
           deep: "#D9A800",
         },
         yellow: {
-          DEFAULT: "#F5C518",
+          DEFAULT: "#FCD930",
           50: "#FEFAE6",
           100: "#FDF4C2",
-          500: "#F5C518",
+          500: "#FCD930",
           600: "#D9A800",
         },
 

@@ -50,7 +50,7 @@ const VS_TONE: Record<AlertaCor, string> = {
 };
 
 const BOLINHA_GRUPO: Record<string, string> = {
-  papeis:   "bg-[#F5C518]",
+  papeis:   "bg-[#FCD930]",
   filtros:  "bg-[#22A87E]",
   piteiras: "bg-[#A04848]",
   outros:   "bg-[#6B6B6B]",

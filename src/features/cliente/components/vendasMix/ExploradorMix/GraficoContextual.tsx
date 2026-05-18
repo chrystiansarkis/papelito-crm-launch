@@ -145,9 +145,9 @@ export function GraficoContextual({
                 <Line
                   type="monotone"
                   dataKey="valor"
-                  stroke="#F5C518"
+                  stroke="#FCD930"
                   strokeWidth={2}
-                  dot={{ r: 3, fill: "#F5C518", strokeWidth: 0 }}
+                  dot={{ r: 3, fill: "#FCD930", strokeWidth: 0 }}
                   activeDot={{ r: 5 }}
                   isAnimationActive={false}
                 />

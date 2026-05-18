@@ -14,7 +14,7 @@ export function AgingBar({ row }: { row: CobrancaRow }) {
   )} | 361+: ${formatMoney(seg4)}`;
   return (
     <div className="flex h-2 rounded overflow-hidden bg-muted w-full" title={tip}>
-      {seg1 > 0 && <div style={{ width: `${pct(seg1)}%`, background: "#F5C518" }} />}
+      {seg1 > 0 && <div style={{ width: `${pct(seg1)}%`, background: "#FCD930" }} />}
       {seg2 > 0 && <div style={{ width: `${pct(seg2)}%`, background: "#F59E0B" }} />}
       {seg3 > 0 && <div style={{ width: `${pct(seg3)}%`, background: "#EF4444" }} />}
       {seg4 > 0 && <div style={{ width: `${pct(seg4)}%`, background: "#991B1B" }} />}

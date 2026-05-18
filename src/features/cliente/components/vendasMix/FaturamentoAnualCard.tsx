@@ -393,7 +393,7 @@ export function FaturamentoAnualCard({
             {/* 4a — barra base (realizado), sólida pra todos os anos */}
             <Bar dataKey="realizado" stackId="ano" radius={[0, 0, 0, 0]}>
               {data.map((d) => (
-                <Cell key={d.ano} fill="#F5C518" />
+                <Cell key={d.ano} fill="#FCD930" />
               ))}
             </Bar>
             {/* 4a — projeção restante empilhada APENAS no ano corrente */}
@@ -401,7 +401,7 @@ export function FaturamentoAnualCard({
               dataKey="projecaoRestante"
               stackId="ano"
               fill="#FFF3C4"
-              stroke="#F5C518"
+              stroke="#FCD930"
               strokeDasharray="4 4"
               radius={[2, 2, 0, 0]}
             />

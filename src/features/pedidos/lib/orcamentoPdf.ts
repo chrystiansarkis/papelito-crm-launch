@@ -8,7 +8,7 @@ import autoTable from "jspdf-autotable";
 import type { Orcamento, OrcamentoItem } from "../types";
 import { formatMoney, formatDate } from "@/lib/format";
 
-const BRAND = "#F5C518";
+const BRAND = "#FCD930";
 const INK = "#222222";
 const GRAY = "#666666";
 

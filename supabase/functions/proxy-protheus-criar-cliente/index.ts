@@ -48,6 +48,7 @@ type ClienteRow = {
   cnpj_cpf: string | null;
   tipo_pessoa: string | null;
   inscricao_estadual: string | null;
+  inscricao_suframa: string | null;
   email_cobranca: string | null;
   entrega_logradouro: string | null;
   entrega_numero: string | null;
@@ -82,6 +83,7 @@ function buildProtheusPayload(c: ClienteRow, vendedorCpf: string): Record<string
     inscricaoEstadual: c.inscricao_estadual && c.inscricao_estadual.trim().length > 0
       ? c.inscricao_estadual
       : "ISENTO",
+    suframa: c.inscricao_suframa?.trim() || "",
     pais: c.pais_protheus,
     email: c.email_cobranca ?? "",
     grupoTributario: c.grupo_tributario,
@@ -150,7 +152,7 @@ Deno.serve(async (req: Request) => {
     .schema("crm")
     .from("cliente_crm")
     .select(
-      "id, nome, nome_fantasia, cnpj_cpf, tipo_pessoa, inscricao_estadual, email_cobranca, entrega_logradouro, entrega_numero, entrega_bairro, entrega_cidade, entrega_uf, entrega_cep, tipo, grupo_tributario, pais_protheus, pais_bacen, vendedor_cod_vend, protheus_sync_status",
+      "id, nome, nome_fantasia, cnpj_cpf, tipo_pessoa, inscricao_estadual, inscricao_suframa, email_cobranca, entrega_logradouro, entrega_numero, entrega_bairro, entrega_cidade, entrega_uf, entrega_cep, tipo, grupo_tributario, pais_protheus, pais_bacen, vendedor_cod_vend, protheus_sync_status",
     )
     .eq("id", parsed.cliente_id)
     .maybeSingle<ClienteRow>();

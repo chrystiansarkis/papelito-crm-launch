@@ -8,6 +8,7 @@ import type {
   Orcamento,
   OrcamentoItem,
   OrcamentoStatus,
+  TipoSaida,
 } from "../types";
 
 type OrcamentoRow = {
@@ -20,6 +21,7 @@ type OrcamentoRow = {
   vendedor_nome: string | null;
   tabela_preco_id: string | null;
   status: OrcamentoStatus;
+  tipo_saida: TipoSaida | null;
   subtotal: number | string | null;
   desconto: number | string | null;
   total: number | string | null;
@@ -64,6 +66,7 @@ function rowToOrcamento(r: OrcamentoRow): Orcamento {
     vendedor_nome: r.vendedor_nome,
     tabela_preco_id: r.tabela_preco_id,
     status: r.status,
+    tipo_saida: r.tipo_saida ?? "venda",
     subtotal: num(r.subtotal),
     desconto: num(r.desconto),
     total: num(r.total),

@@ -216,6 +216,14 @@ function SecaoIdentificacao({
             placeholder={form.tipo_pessoa === "F" ? "RG do titular" : "IE da empresa"}
           />
         </Field>
+        <Field label="Inscrição Suframa" error={errors["inscricao_suframa"]}>
+          <Input
+            value={form.inscricao_suframa ?? ""}
+            onChange={(v) => setField("inscricao_suframa", v)}
+            maxLength={12}
+            placeholder="Até 12 caracteres (alfanumérico)"
+          />
+        </Field>
         <Field label="Email de cobrança/financeiro" error={errors["email_cobranca"]} cols={2}>
           <Input
             value={form.email_cobranca ?? ""}

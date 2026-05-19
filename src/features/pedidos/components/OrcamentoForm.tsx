@@ -34,7 +34,9 @@ import type {
   Orcamento,
   OrcamentoItem,
   OrcamentoStatus,
+  TipoSaida,
 } from "../types";
+import { TIPO_SAIDA_VALUES, TIPO_SAIDA_LABEL } from "../types";
 import { formatMoney } from "@/lib/format";
 
 type Errors = Record<string, string>;
@@ -59,6 +61,7 @@ export function OrcamentoForm({ mode, orcamento, itensIniciais }: OrcamentoFormP
         cliente_id: orcamento.cliente_id,
         tabela_preco_id: orcamento.tabela_preco_id ?? "",
         status: orcamento.status,
+        tipo_saida: orcamento.tipo_saida,
         validade_dias: orcamento.validade_dias,
         condicao_pgto: orcamento.condicao_pgto ?? "",
         observacao: orcamento.observacao ?? "",
@@ -132,6 +135,87 @@ export function OrcamentoForm({ mode, orcamento, itensIniciais }: OrcamentoFormP
       if (!p[key as string]) return p;
       const { [key as string]: _omitted, ...rest } = p;
       return rest;
+    });
+  }
+
+  // Bonificação fiscal: ao trocar tipo_saida != venda, força liquido=0 por linha
+  // (vlr_desc = qtd*vlr_unit). Ao voltar pra venda, restaura os descontos
+  // anteriores via snapshot. Linhas adicionadas durante o estado bonificação
+  // ficam sem snapshot — zera o desconto e sugere usar "Recalcular descontos".
+  // Espelha a validação no fn_salvar_orcamento.
+  const descSnapshotRef = useRef<Map<string, number>>(new Map());
+
+  function snapshotKey(it: OrcamentoItemForm, idx: number): string {
+    return it.cod_produto ? `cod:${it.cod_produto}` : `idx:${idx}`;
+  }
+
+  function handleTipoSaidaChange(novo: TipoSaida) {
+    setForm((p) => {
+      if (p.tipo_saida === novo) return p;
+
+      // venda -> bonificação/remessa: snapshot e força líquido=0 por linha
+      if (novo !== "venda") {
+        if (p.tipo_saida === "venda") {
+          const snap = new Map<string, number>();
+          p.itens.forEach((it, i) => {
+            snap.set(snapshotKey(it, i), it.vlr_desc || 0);
+          });
+          descSnapshotRef.current = snap;
+        }
+        let ajustadas = 0;
+        const itens = p.itens.map((it) => {
+          const bruto = Number(((it.qtd || 0) * (it.vlr_unit || 0)).toFixed(2));
+          if (Math.abs(bruto - (it.vlr_desc || 0)) <= 0.01) return it;
+          ajustadas += 1;
+          return { ...it, vlr_desc: bruto };
+        });
+        if (ajustadas > 0) {
+          toast.info(
+            `${ajustadas} ${ajustadas === 1 ? "item ajustado" : "itens ajustados"} — desconto = 100%`,
+            { description: "Em bonificação/remessa, o líquido por linha vai a zero." },
+          );
+        }
+        return { ...p, tipo_saida: novo, itens };
+      }
+
+      // bonificação -> venda: restaura desconto do snapshot
+      const snap = descSnapshotRef.current;
+      let restauradas = 0;
+      let semSnap = 0;
+      const itens = p.itens.map((it, i) => {
+        const key = snapshotKey(it, i);
+        if (snap.has(key)) {
+          const orig = snap.get(key) || 0;
+          if (Math.abs(orig - (it.vlr_desc || 0)) > 0.01) {
+            restauradas += 1;
+            return { ...it, vlr_desc: orig };
+          }
+          return it;
+        }
+        if ((it.vlr_desc || 0) > 0.01) {
+          semSnap += 1;
+          return { ...it, vlr_desc: 0 };
+        }
+        return it;
+      });
+      descSnapshotRef.current = new Map();
+      if (restauradas > 0 || semSnap > 0) {
+        const partes: string[] = [];
+        if (restauradas > 0) partes.push(`${restauradas} desconto(s) restaurado(s)`);
+        if (semSnap > 0) partes.push(`${semSnap} linha(s) zerada(s)`);
+        toast.info(partes.join(" · "), {
+          description: "Use 'Recalcular descontos' para reaplicar regras do cliente.",
+        });
+      }
+      return { ...p, tipo_saida: novo, itens };
+    });
+    setErrors((p) => {
+      const next = { ...p };
+      delete next["tipo_saida"];
+      for (const k of Object.keys(next)) {
+        if (k.startsWith("itens.")) delete next[k];
+      }
+      return next;
     });
   }
 
@@ -538,6 +622,24 @@ export function OrcamentoForm({ mode, orcamento, itensIniciais }: OrcamentoFormP
                       </button>
                     )}
                   </div>
+                )}
+              </Field>
+              <Field label="Tipo de saída" error={errors["tipo_saida"]}>
+                <select
+                  value={form.tipo_saida}
+                  onChange={(e) => handleTipoSaidaChange(e.target.value as TipoSaida)}
+                  className="w-full px-3 py-2 text-[13px] bg-white border border-gray-line rounded-md text-ink focus:outline-none focus:border-brand"
+                >
+                  {TIPO_SAIDA_VALUES.map((v) => (
+                    <option key={v} value={v}>
+                      {TIPO_SAIDA_LABEL[v]}
+                    </option>
+                  ))}
+                </select>
+                {form.tipo_saida !== "venda" && (
+                  <p className="text-[11px] text-gray-text mt-1">
+                    Bonificação/remessa — líquido por linha = 0 (desconto = 100%).
+                  </p>
                 )}
               </Field>
               <Field label="Condicao de pagamento" error={errors["condicao_pgto"]}>

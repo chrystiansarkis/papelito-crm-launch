@@ -40,6 +40,7 @@ export async function cadastrarClienteCrm(input: NovoClienteForm): Promise<strin
     // tipo_pessoa não foi definido, default = inscricao_estadual.
     inscricao_estadual: safe.tipo_pessoa === "F" ? null : safe.ie_rg || null,
     rg: safe.tipo_pessoa === "F" ? safe.ie_rg || null : null,
+    inscricao_suframa: safe.inscricao_suframa || null,
     industria: safe.industria || null,
     email_cobranca: safe.email_cobranca || null,
     matriz_id: safe.matriz_id || null,

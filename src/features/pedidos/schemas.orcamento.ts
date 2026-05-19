@@ -16,6 +16,16 @@ export const ORCAMENTO_STATUS_VALUES = [
 
 export const orcamentoStatusSchema = z.enum(ORCAMENTO_STATUS_VALUES);
 
+export const TIPO_SAIDA_VALUES = [
+  "venda",
+  "bonificacao_venda",
+  "bonificacao_trade",
+  "bonificacao_evento",
+  "remessa_evento",
+] as const;
+
+export const tipoSaidaSchema = z.enum(TIPO_SAIDA_VALUES);
+
 const uuidSchema = z
   .string()
   .trim()
@@ -83,6 +93,7 @@ export const salvarOrcamentoSchema = z
     cliente_id: uuidSchema,
     tabela_preco_id: z.string().trim().max(64).optional().or(z.literal("")),
     status: orcamentoStatusSchema.default("rascunho"),
+    tipo_saida: tipoSaidaSchema.default("venda"),
     validade_dias: z.number().int().min(0).max(365).default(7),
     condicao_pgto: z.string().trim().max(120).optional().or(z.literal("")),
     observacao: z.string().trim().max(4000).optional().or(z.literal("")),
@@ -97,6 +108,21 @@ export const salvarOrcamentoSchema = z
         message: "Adicione ao menos 1 item para mudar do rascunho",
       });
     }
+    // Bonificação fiscal: líquido por linha deve ser 0 (vlr_desc = qtd*vlr_unit).
+    // Tolerância R$ 0,01 para arredondamento — espelha o RAISE no banco.
+    if (val.tipo_saida !== "venda") {
+      val.itens.forEach((it, idx) => {
+        const bruto = Number(((it.qtd ?? 0) * (it.vlr_unit ?? 0)).toFixed(2));
+        const liq = bruto - (it.vlr_desc ?? 0);
+        if (liq > 0.01) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["itens", idx, "vlr_desc"],
+            message: "Bonificação: desconto deve cobrir qtd × valor unitário (líquido = 0)",
+          });
+        }
+      });
+    }
   });
 
 export type SalvarOrcamentoForm = z.infer<typeof salvarOrcamentoSchema>;
@@ -106,6 +132,7 @@ export const SALVAR_ORCAMENTO_INITIAL: SalvarOrcamentoForm = {
   cliente_id: "",
   tabela_preco_id: "",
   status: "rascunho",
+  tipo_saida: "venda",
   validade_dias: 7,
   condicao_pgto: "",
   observacao: "",

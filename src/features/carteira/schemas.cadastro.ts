@@ -137,6 +137,14 @@ export const novoClienteSchema = z.object({
   // Campo único no form. No submit, é roteado pra crm.cliente_crm.inscricao_estadual
   // (se tipo_pessoa = J) ou .rg (se tipo_pessoa = F). Default: IE (mais comum).
   ie_rg: z.string().trim().max(50).optional().or(z.literal("")),
+  // Inscrição Suframa do destinatário (até 12 chars alfanuméricos, igual A1_SUFRAMA).
+  inscricao_suframa: z
+    .string()
+    .trim()
+    .max(12)
+    .optional()
+    .or(z.literal(""))
+    .refine((v) => !v || /^[A-Za-z0-9]+$/.test(v), { message: "Suframa: até 12 caracteres alfanuméricos" }),
   industria: z.string().trim().max(255).optional().or(z.literal("")),
   email_cobranca: z
     .string()
@@ -189,6 +197,7 @@ export const NOVO_CLIENTE_INITIAL: NovoClienteForm = {
   tipo_conta: "",
   segmento_cliente: "",
   ie_rg: "",
+  inscricao_suframa: "",
   industria: "",
   email_cobranca: "",
   matriz_id: "",

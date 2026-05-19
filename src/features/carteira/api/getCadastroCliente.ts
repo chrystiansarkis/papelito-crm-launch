@@ -29,6 +29,7 @@ type RawCadastro = {
   tipo_conta?: string;
   segmento_cliente?: string;
   ie_rg?: string;
+  inscricao_suframa?: string;
   industria?: string;
   email_cobranca?: string;
   matriz_id?: string;
@@ -79,6 +80,7 @@ export async function getCadastroCliente(clienteId: string): Promise<CadastroCli
     tipo_conta: (raw.tipo_conta ?? "") as NovoClienteForm["tipo_conta"],
     segmento_cliente: (raw.segmento_cliente ?? "") as NovoClienteForm["segmento_cliente"],
     ie_rg: raw.ie_rg ?? "",
+    inscricao_suframa: raw.inscricao_suframa ?? "",
     industria: raw.industria ?? "",
     email_cobranca: raw.email_cobranca ?? "",
     matriz_id: raw.matriz_id ?? "",

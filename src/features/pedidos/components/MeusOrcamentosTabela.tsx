@@ -9,6 +9,7 @@ import { formatMoney, formatDate } from "@/lib/format";
 import { LoadingRow, EmptyRow } from "@/components/common/LoadingRow";
 import {
   ORCAMENTO_STATUS_LABEL,
+  TIPO_SAIDA_LABEL,
   type Orcamento,
   type OrcamentoStatus,
 } from "../types";
@@ -59,9 +60,14 @@ export function MeusOrcamentosTabela({ rows, loading }: MeusOrcamentosTabelaProp
                   {o.cliente_nome ?? "—"}
                 </td>
                 <td className="px-3 py-2.5">
-                  <Pill variant={STATUS_VARIANT[o.status] ?? "soft"}>
-                    {ORCAMENTO_STATUS_LABEL[o.status]}
-                  </Pill>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <Pill variant={STATUS_VARIANT[o.status] ?? "soft"}>
+                      {ORCAMENTO_STATUS_LABEL[o.status]}
+                    </Pill>
+                    {o.tipo_saida !== "venda" && (
+                      <Pill variant="outline">{TIPO_SAIDA_LABEL[o.tipo_saida]}</Pill>
+                    )}
+                  </div>
                 </td>
                 <td className={cn("px-3 py-2.5 text-right text-[12.5px] tabular text-ink font-medium whitespace-nowrap")}>
                   {formatMoney(o.total)}

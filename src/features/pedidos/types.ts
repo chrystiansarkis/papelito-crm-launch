@@ -150,6 +150,31 @@ export const ORCAMENTO_STATUS_LABEL: Record<OrcamentoStatus, string> = {
   recusado: "Recusado",
 };
 
+// Espelha Salesforce Order.tipoSaida__c — usado para resolver TES no Protheus.
+// Para valores != 'venda', o liquido por linha deve ser 0 (vlr_desc cobre o bruto).
+export type TipoSaida =
+  | "venda"
+  | "bonificacao_venda"
+  | "bonificacao_trade"
+  | "bonificacao_evento"
+  | "remessa_evento";
+
+export const TIPO_SAIDA_VALUES: TipoSaida[] = [
+  "venda",
+  "bonificacao_venda",
+  "bonificacao_trade",
+  "bonificacao_evento",
+  "remessa_evento",
+];
+
+export const TIPO_SAIDA_LABEL: Record<TipoSaida, string> = {
+  venda: "Venda",
+  bonificacao_venda: "Bonificação de venda",
+  bonificacao_trade: "Bonificação de trade",
+  bonificacao_evento: "Bonificação de evento",
+  remessa_evento: "Remessa de evento",
+};
+
 export type OrcamentoItem = {
   id: string;
   orcamento_id: string;
@@ -182,6 +207,7 @@ export type Orcamento = {
   observacao: string | null;
   motivo_recusa: string | null;
   protheus_pedido_id: string | null;
+  tipo_saida: TipoSaida;
   created_at: string;
   updated_at: string;
   status_changed_at: string;

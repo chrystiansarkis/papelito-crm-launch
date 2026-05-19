@@ -15,6 +15,7 @@ export async function salvarOrcamento(input: SalvarOrcamentoForm): Promise<strin
     cliente_id: safe.cliente_id,
     tabela_preco_id: safe.tabela_preco_id || null,
     status: safe.status,
+    tipo_saida: safe.tipo_saida,
     validade_dias: safe.validade_dias,
     condicao_pgto: safe.condicao_pgto || null,
     observacao: safe.observacao || null,

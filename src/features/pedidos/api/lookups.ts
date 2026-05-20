@@ -13,25 +13,26 @@ export type ClienteLookup = {
   uf: string | null;
 };
 
+// Busca em crm.cliente (apenas matrizes ativas) via RPC SECURITY DEFINER. O id
+// retornado e md5(cgc_normalizado)::uuid, mesmo valor que crm.orcamentos.cliente_id
+// armazena. Inclui Salesforce-only e cadastros CRM-only ainda pendentes no Protheus —
+// a fonte unificada (Fase 1 da unificacao) ja consolidou tudo nessa tabela.
 export async function searchClientes(term: string): Promise<ClienteLookup[]> {
   const trimmed = (term ?? "").trim();
-  let q = publicDb
-    .from("vw_carteira" as never)
-    .select("id, nome, cgc_matriz, uf")
-    .limit(20);
-  if (trimmed) {
-    q = q.or(`nome.ilike.%${trimmed}%,cgc_matriz.ilike.%${trimmed}%`);
-  } else {
-    q = q.order("faturamento_12m", { ascending: false, nullsFirst: false });
-  }
-  const { data, error } = await q;
+  // Sem termo: trazemos o maximo possivel para o autocomplete renderizar
+  // a lista cheia. Com termo: 50 e suficiente para o vendedor encontrar.
+  const limit = trimmed ? 50 : 2000;
+  const { data, error } = await publicDb.rpc("fn_buscar_clientes_dim" as never, {
+    p_term: trimmed || null,
+    p_limit: limit,
+  } as never);
   if (error) throw error;
-  type Row = { id: string; nome: string; cgc_matriz: string | null; uf: string | null };
+  type Row = { id: string; nome: string; cnpj: string | null; uf: string | null };
   return ((data ?? []) as Row[]).map((r) => ({
     id: r.id,
     nome: r.nome,
-    cnpj: r.cgc_matriz,
-    uf: r.uf,
+    cnpj: r.cnpj,
+    uf: (r.uf ?? "").trim() || null,
   }));
 }
 

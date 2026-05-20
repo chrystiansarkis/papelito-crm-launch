@@ -208,6 +208,8 @@ export type Orcamento = {
   motivo_recusa: string | null;
   protheus_pedido_id: string | null;
   tipo_saida: TipoSaida;
+  empresa_cgc: string | null;
+  empresa_id_protheus: string | null;
   created_at: string;
   updated_at: string;
   status_changed_at: string;

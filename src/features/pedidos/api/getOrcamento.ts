@@ -30,6 +30,8 @@ type OrcamentoRow = {
   observacao: string | null;
   motivo_recusa: string | null;
   protheus_pedido_id: string | null;
+  empresa_cgc: string | null;
+  empresa_id_protheus: string | null;
   created_at: string;
   updated_at: string;
   status_changed_at: string;
@@ -75,6 +77,8 @@ function rowToOrcamento(r: OrcamentoRow): Orcamento {
     observacao: r.observacao,
     motivo_recusa: r.motivo_recusa,
     protheus_pedido_id: r.protheus_pedido_id,
+    empresa_cgc: r.empresa_cgc,
+    empresa_id_protheus: r.empresa_id_protheus,
     created_at: r.created_at,
     updated_at: r.updated_at,
     status_changed_at: r.status_changed_at,

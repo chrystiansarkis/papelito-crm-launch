@@ -10,6 +10,7 @@ import { ExternalLink } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
 import { SearchSelect } from "@/features/carteira";
 import { OrcamentoItensEditor } from "./OrcamentoItensEditor";
+import { EmpresaEmissoraSelect } from "./EmpresaEmissoraSelect";
 import { TopSkusEAlertasOrcamento } from "./TopSkusEAlertasOrcamento";
 import { prepararTopSkusComoItens } from "../lib/prepararTopSkus";
 import { StatusTransitions } from "./StatusTransitions";
@@ -62,6 +63,8 @@ export function OrcamentoForm({ mode, orcamento, itensIniciais }: OrcamentoFormP
         tabela_preco_id: orcamento.tabela_preco_id ?? "",
         status: orcamento.status,
         tipo_saida: orcamento.tipo_saida,
+        empresa_cgc: orcamento.empresa_cgc ?? "",
+        empresa_id_protheus: orcamento.empresa_id_protheus ?? "",
         validade_dias: orcamento.validade_dias,
         condicao_pgto: orcamento.condicao_pgto ?? "",
         observacao: orcamento.observacao ?? "",
@@ -622,6 +625,24 @@ export function OrcamentoForm({ mode, orcamento, itensIniciais }: OrcamentoFormP
                       </button>
                     )}
                   </div>
+                )}
+              </Field>
+              <Field
+                label="Empresa emissora"
+                required
+                error={errors["empresa_cgc"]}
+              >
+                <EmpresaEmissoraSelect
+                  value={form.empresa_cgc || null}
+                  onChange={(cgc) => set("empresa_cgc", cgc)}
+                  onSelectEmpresa={(emp) =>
+                    set("empresa_id_protheus", emp.idProtheus ?? "")
+                  }
+                />
+                {form.empresa_id_protheus && (
+                  <p className="text-[11px] text-gray-text mt-1">
+                    idProtheus: <span className="tabular">{form.empresa_id_protheus}</span>
+                  </p>
                 )}
               </Field>
               <Field label="Tipo de saída" error={errors["tipo_saida"]}>

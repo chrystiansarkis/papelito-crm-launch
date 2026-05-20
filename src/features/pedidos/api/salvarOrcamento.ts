@@ -16,6 +16,8 @@ export async function salvarOrcamento(input: SalvarOrcamentoForm): Promise<strin
     tabela_preco_id: safe.tabela_preco_id || null,
     status: safe.status,
     tipo_saida: safe.tipo_saida,
+    empresa_cgc: safe.empresa_cgc ? safe.empresa_cgc.replace(/\D/g, "") : null,
+    empresa_id_protheus: safe.empresa_id_protheus || null,
     validade_dias: safe.validade_dias,
     condicao_pgto: safe.condicao_pgto || null,
     observacao: safe.observacao || null,

@@ -82,6 +82,17 @@ export const ORCAMENTO_ITEM_INITIAL: OrcamentoItemForm = {
   qtd_caixa_master: 1,
 };
 
+// CGC normalizado (só dígitos, 14). Vazio é permitido em rascunho — vira null
+// no payload. Quando preenchido, valida o tamanho exato.
+const empresaCgcSchema = z
+  .string()
+  .trim()
+  .optional()
+  .or(z.literal(""))
+  .refine((v) => !v || /^\d{14}$/.test(v.replace(/\D/g, "")), {
+    message: "CGC deve ter 14 dígitos",
+  });
+
 export const salvarOrcamentoSchema = z
   .object({
     id: z
@@ -94,6 +105,8 @@ export const salvarOrcamentoSchema = z
     tabela_preco_id: z.string().trim().max(64).optional().or(z.literal("")),
     status: orcamentoStatusSchema.default("rascunho"),
     tipo_saida: tipoSaidaSchema.default("venda"),
+    empresa_cgc: empresaCgcSchema,
+    empresa_id_protheus: z.string().trim().max(32).optional().or(z.literal("")),
     validade_dias: z.number().int().min(0).max(365).default(7),
     condicao_pgto: z.string().trim().max(120).optional().or(z.literal("")),
     observacao: z.string().trim().max(4000).optional().or(z.literal("")),
@@ -106,6 +119,15 @@ export const salvarOrcamentoSchema = z
         code: z.ZodIssueCode.custom,
         path: ["itens"],
         message: "Adicione ao menos 1 item para mudar do rascunho",
+      });
+    }
+    // Empresa emissora vira obrigatória ao sair do rascunho — sem ela a edge
+    // function proxy-protheus-criar-pedido não consegue calcular TES.
+    if (val.status !== "rascunho" && !val.empresa_cgc) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["empresa_cgc"],
+        message: "Selecione a empresa emissora antes de avançar do rascunho",
       });
     }
     // Bonificação fiscal: líquido por linha deve ser 0 (vlr_desc = qtd*vlr_unit).
@@ -133,6 +155,8 @@ export const SALVAR_ORCAMENTO_INITIAL: SalvarOrcamentoForm = {
   tabela_preco_id: "",
   status: "rascunho",
   tipo_saida: "venda",
+  empresa_cgc: "",
+  empresa_id_protheus: "",
   validade_dias: 7,
   condicao_pgto: "",
   observacao: "",

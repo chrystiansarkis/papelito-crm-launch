@@ -4,25 +4,34 @@
 //   A05 (zod no input),
 //   A09 (PROTHEUS_PROXY_API_KEY lido de Deno.env)
 //
-// proxy-protheus-criar-pedido (esqueleto — Fase 1)
+// proxy-protheus-criar-pedido
 //
 // Pipeline:
 //   1. Valida JWT
 //   2. Parse zod (orcamento_id)
 //   3. Le orcamento + itens via RLS
-//   4. Particiona itens em "venda" e "bonificacao"
-//   5. POST /proxyProtheus/criarPedido para a venda (CFOP normal)
-//   6. Se houver bonificacao, POST adicional com CFOP de bonificacao
-//   7. Retorna agregado dos dois resultados
+//   4. Le cadastro fiscal do cliente (cnpj, entrega_uf, inscricao_suframa)
+//   5. Particiona itens em "venda" e "bonificacao"
+//   6. Calcula TES por particao (src/lib/fiscal/tes) — bloqueia em warning
+//   7. POST /proxyProtheus/criarPedido para a venda (CFOP normal + TES)
+//   8. Se houver bonificacao, POST adicional (CFOP bonif + TES bonif)
+//   9. Retorna agregado dos dois resultados
 //
 // Pendencias para a proxima fase:
-//   - Mapeamento fiscal completo (CFOPs por UF, TES, natureza)
+//   - CFOPs por UF/operacao (caminham junto com TES — separar em PR propria)
 //   - Tratamento de bonificacao "valor" (gerar pedido com produto fictio)
 //   - Logging estruturado em tabela de auditoria de envio (crm.orcamento_envio_protheus)
 //   - Idempotencia: marcar orcamento.protheus_pedido_id apos sucesso
 //
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { z } from "npm:zod@3.23.8";
+import {
+  calcularTes,
+  getIdProtheusPorCgc,
+  normalizarCgc,
+  type EntradaTes,
+  type TipoSaida,
+} from "../../../src/lib/fiscal/tes/index.ts";
 
 const CORS_HEADERS: HeadersInit = {
   "Access-Control-Allow-Origin": "*",
@@ -51,6 +60,9 @@ type OrcamentoRow = {
   status: string;
   observacao: string | null;
   vendedor_id: string;
+  tipo_saida: TipoSaida;
+  empresa_cgc: string | null;
+  empresa_id_protheus: string | null;
 };
 
 type ItemRow = {
@@ -66,12 +78,26 @@ type ItemRow = {
 
 type ClienteFiscal = {
   cnpj_cpf: string | null;
+  entrega_uf: string | null;
+  inscricao_suframa: string | null;
 };
 
 // CFOPs: TODO proxima fase preencher por UF/operacao. Valores aqui sao
 // placeholders. NAO usar em producao sem revisao fiscal.
 const CFOP_VENDA = "5102";
 const CFOP_BONIFICACAO = "5910";
+
+// tipo_saida e atributo do orcamento inteiro. Para a particao de venda usa
+// "venda" diretamente. Para a particao de bonificacao, usa o tipo_saida do
+// orcamento se ja for de bonificacao/remessa; se for "venda" (caso em que o
+// orcamento e venda com itens bonificados), assume "bonificacao_venda".
+function tipoSaidaParaParticao(
+  particao: "venda" | "bonificacao",
+  tipoSaidaOrcamento: TipoSaida,
+): TipoSaida {
+  if (particao === "venda") return "venda";
+  return tipoSaidaOrcamento === "venda" ? "bonificacao_venda" : tipoSaidaOrcamento;
+}
 
 type PedidoPartes = {
   venda: ItemRow[];
@@ -103,6 +129,8 @@ function buildPedidoPayload(
   itens: ItemRow[],
   cfop: string,
   tipoPedido: "venda" | "bonificacao",
+  idTes: number,
+  empresaIdProtheus: string,
 ): Record<string, unknown> {
   return {
     orcamentoId: orc.id,
@@ -110,6 +138,9 @@ function buildPedidoPayload(
     cnpj: (cliente.cnpj_cpf ?? "").replace(/\D/g, ""),
     tabelaPreco: orc.tabela_preco_id,
     cfop,
+    empresaIdProtheus,
+    empresaCgc: orc.empresa_cgc,
+    idTes,
     observacao: orc.observacao ?? "",
     itens: itens.map((it) => ({
       sequencia: it.sequencia,
@@ -199,7 +230,7 @@ Deno.serve(async (req: Request) => {
     .schema("crm")
     .from("orcamentos")
     .select(
-      "id, cliente_id, tabela_preco_id, status, observacao, vendedor_id",
+      "id, cliente_id, tabela_preco_id, status, observacao, vendedor_id, tipo_saida, empresa_cgc, empresa_id_protheus",
     )
     .eq("id", parsed.orcamento_id)
     .maybeSingle<OrcamentoRow>();
@@ -252,17 +283,87 @@ Deno.serve(async (req: Request) => {
     }),
   );
 
-  const { data: cliente } = await supabase
-    .schema("crm")
-    .from("clientes")
-    .select("cnpj_cpf:cgc_matriz_normalizado")
-    .eq("id", orc.cliente_id)
-    .maybeSingle<ClienteFiscal>();
+  // Cadastro fiscal do cliente (cnpj, entrega_uf, inscricao_suframa) via RPC que
+  // ja lida com o split clientes/cliente_crm e o match por CGC normalizado.
+  const { data: cadastro } = await supabase.rpc("fn_obter_cadastro_cliente", {
+    p_cliente_id: orc.cliente_id,
+  });
+  const cad = (cadastro ?? {}) as {
+    cnpj_cpf?: string;
+    inscricao_suframa?: string;
+    entrega?: { uf?: string };
+  };
+  const clienteFiscal: ClienteFiscal = {
+    cnpj_cpf: cad.cnpj_cpf ?? null,
+    entrega_uf: cad.entrega?.uf ?? null,
+    inscricao_suframa: cad.inscricao_suframa ?? null,
+  };
 
   const partes = particionarItens(itens);
 
   if (partes.venda.length === 0 && partes.bonificacao.length === 0) {
     return jsonResponse({ error: "Orcamento sem itens" }, 400);
+  }
+
+  // Gate fiscal: empresa emissora deve estar definida no orcamento.
+  const empresaCgc = normalizarCgc(orc.empresa_cgc);
+  if (!empresaCgc) {
+    return jsonResponse(
+      {
+        error: "Orcamento sem empresa emissora",
+        detail: "Selecione a empresa emissora antes de enviar.",
+      },
+      422,
+    );
+  }
+
+  // idProtheus do payload: prioriza o que foi congelado no orcamento. Se
+  // ausente (orcamentos antigos), deriva do catalogo via CGC. Defesa em
+  // profundidade — o Select ja exclui empresas sem catalogo TES.
+  const empresaIdProtheusEfetivo =
+    orc.empresa_id_protheus ?? getIdProtheusPorCgc(empresaCgc);
+  if (!empresaIdProtheusEfetivo) {
+    return jsonResponse(
+      {
+        error: "Empresa nao registrada",
+        detail: `CGC ${empresaCgc} nao esta no catalogo TES (src/lib/fiscal/tes/dimensoes.ts).`,
+      },
+      422,
+    );
+  }
+
+  // Calcula TES para cada particao. Se qualquer particao retornar warning,
+  // bloqueia o envio inteiro — evita pedido parcial no Protheus.
+  function calcularTesParticao(
+    particao: "venda" | "bonificacao",
+  ): { idTes: number; warning: null } | { idTes: null; warning: string } {
+    const entrada: EntradaTes = {
+      empresaCgc,
+      ufCliente: (clienteFiscal.entrega_uf ?? "").toUpperCase(),
+      clienteTemSuframa: Boolean((clienteFiscal.inscricao_suframa ?? "").trim()),
+      tipoSaida: tipoSaidaParaParticao(particao, orc.tipo_saida),
+    };
+    const r = calcularTes(entrada);
+    if (r.status === "ok") return { idTes: r.idTes, warning: null };
+    return { idTes: null, warning: r.contexto };
+  }
+
+  const tesVenda = partes.venda.length > 0 ? calcularTesParticao("venda") : null;
+  const tesBonif = partes.bonificacao.length > 0 ? calcularTesParticao("bonificacao") : null;
+
+  const warningVenda = tesVenda?.warning ?? null;
+  const warningBonif = tesBonif?.warning ?? null;
+  if (warningVenda || warningBonif) {
+    return jsonResponse(
+      {
+        error: "TES nao configurada para esta combinacao",
+        warnings: {
+          venda: warningVenda,
+          bonificacao: warningBonif,
+        },
+      },
+      422,
+    );
   }
 
   const resultados: Array<{
@@ -273,25 +374,29 @@ Deno.serve(async (req: Request) => {
     error?: string;
   }> = [];
 
-  if (partes.venda.length > 0) {
+  if (partes.venda.length > 0 && tesVenda?.idTes != null) {
     const payload = buildPedidoPayload(
       orc,
-      cliente ?? { cnpj_cpf: null },
+      clienteFiscal,
       partes.venda,
       CFOP_VENDA,
       "venda",
+      tesVenda.idTes,
+      empresaIdProtheusEfetivo,
     );
     const r = await postProtheus(protheusApiKey, payload);
     resultados.push({ tipo: "venda", ...r });
   }
 
-  if (partes.bonificacao.length > 0) {
+  if (partes.bonificacao.length > 0 && tesBonif?.idTes != null) {
     const payload = buildPedidoPayload(
       orc,
-      cliente ?? { cnpj_cpf: null },
+      clienteFiscal,
       partes.bonificacao,
       CFOP_BONIFICACAO,
       "bonificacao",
+      tesBonif.idTes,
+      empresaIdProtheusEfetivo,
     );
     const r = await postProtheus(protheusApiKey, payload);
     resultados.push({ tipo: "bonificacao", ...r });
